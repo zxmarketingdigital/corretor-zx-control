@@ -1,6 +1,6 @@
-# Corretor Cheio — Pacote de Nicho ZX Control v3 (Imobiliário)
+# Corretor ZX Control — Pacote de Nicho ZX Control v3 (Imobiliário)
 
-> Data: 2026-06-08 · Slug: `corretor-cheio` · Linha: pacotes de nicho ZX Control v3
+> Data: 2026-06-08 · Slug: `corretor-zx-control` · Linha: pacotes de nicho ZX Control v3
 > Irmão de: `clinica-cheia` (1º pacote, estética, `v1.0.0`)
 > Status do documento: spec aprovado em brainstorming, aguardando plano de implementação.
 
