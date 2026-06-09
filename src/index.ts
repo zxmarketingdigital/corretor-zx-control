@@ -119,41 +119,38 @@ export default {
       },
     });
 
-    // TODO(fatia-2 — cadências proativas): as funções `listar...` abaixo retornam []
-    // até a camada de seleção por cadência ser implementada (defaults do plano: anti-no-show 36h,
-    // pós-venda D+3/D+30, reativador 30d, follow-up multi-toque). O scheduler/dispatch já é real
-    // (tabela disparos), então assim que as listas retornarem dados os proativos disparam com anti-ban.
+    // Seleção real dos alvos por cron (a frequência é garantida pela idempotência do scheduler).
     await runAntiNoshow({
-      listarVisitasProximas: async () => [],
+      listarVisitasProximas: () => cat.listarVisitasProximas(),
       dispatch: dispatchFn,
       nomeCorretor: env.CORRETOR_NOME ?? "Corretor",
       now: new Date(),
     });
 
     await runFollowup({
-      listarLeadsParaFollowup: async () => [],
+      listarLeadsParaFollowup: () => cat.listarLeadsParaFollowup(),
       dispatch: dispatchFn,
       gemini,
       now: new Date(),
     });
 
     await runRadar({
-      listarImoveisNovos: async () => [],
-      listarClientesElegiveisParaImovel: async () => [],
+      listarImoveisNovos: () => cat.listarImoveisNovos(),
+      listarClientesElegiveisParaImovel: (imovel) => cat.listarClientesElegiveisParaImovel(imovel),
       dispatch: (opts) => dispatchFn({ ...opts }),
       gemini,
       now: new Date(),
     });
 
     await runReativador({
-      listarClientesFrios: async () => [],
+      listarClientesFrios: () => cat.listarClientesFrios(),
       dispatch: dispatchFn,
       gemini,
       now: new Date(),
     });
 
     await runPosvenda({
-      listarClientesFechados: async () => [],
+      listarClientesFechados: () => cat.listarClientesFechados(),
       dispatch: dispatchFn,
       gemini,
       googleLink: env.GOOGLE_REVIEW_LINK ?? "",

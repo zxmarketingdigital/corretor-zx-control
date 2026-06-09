@@ -8,6 +8,11 @@ import type { ClienteBasico } from "../agents/agent1";
 import type { Imovel, PerfilBusca } from "../matching/sql";
 import type { AgenteName, DbLike } from "../scheduler/types";
 import type { ImovelInput, ClienteInput } from "../adapters/catalog/csv";
+import type { VisitaAgendada } from "../crons/anti-noshow";
+import type { LeadParaFollowup } from "../crons/followup";
+import type { ImovelNovo, ClienteElegivel } from "../crons/radar";
+import type { ClienteFrio } from "../crons/reativador";
+import type { ClienteFechado } from "../crons/posvenda";
 
 export interface DbEnv {
   SUPABASE_URL: string;
@@ -219,6 +224,155 @@ export function createDb(env: DbEnv) {
       const { error } = await sb.from("clientes").upsert(rows, { onConflict: "telefone" });
       if (error) throw new Error(`Falha ao importar clientes: ${error.message}`);
       return { inseridos, atualizados };
+    },
+
+    // ═══════════════ Seleção dos crons proativos (fatia 2) ═══════════════════
+    // A FREQUÊNCIA já é garantida pela idempotência do scheduler (dedup.ts):
+    // follow-up/reativador = semanal, pós-venda = mensal, radar = permanente
+    // cliente×imóvel. Estas consultas só escolhem ALVOS elegíveis; as janelas
+    // abaixo são defaults do plano (spec §4) — confirmar com o ZX LAB.
+
+    async listarVisitasProximas(): Promise<VisitaAgendada[]> {
+      const now = new Date();
+      const limite = new Date(now.getTime() + 36 * 3_600_000); // 36h (default anti-no-show, já no cron)
+      const { data } = await sb
+        .from("visitas")
+        .select("id, agendada_para, cliente_id, clientes(telefone), imoveis(titulo)")
+        .in("status", ["agendada", "confirmada"])
+        .gte("agendada_para", now.toISOString())
+        .lte("agendada_para", limite.toISOString());
+      // supabase-js tipa embed como array; em runtime relação to-one vem como objeto.
+      const rows = (data ?? []) as unknown as Array<{
+        id: string; agendada_para: string; cliente_id: string;
+        clientes: { telefone: string } | null; imoveis: { titulo: string } | null;
+      }>;
+      return rows
+        .filter((v) => v.clientes?.telefone)
+        .map((v) => ({
+          id: v.id,
+          clienteId: v.cliente_id,
+          numero: v.clientes!.telefone,
+          local: v.imoveis?.titulo ?? "o imóvel",
+          agendada_para: new Date(v.agendada_para),
+        }));
+    },
+
+    async listarLeadsParaFollowup(): Promise<LeadParaFollowup[]> {
+      const corte = new Date(Date.now() - 3 * 86_400_000); // lead quieto há 3d (default plano)
+      const { data } = await sb
+        .from("conversas")
+        .select("id, cliente_id, clientes(telefone, opt_out)")
+        .in("estado", ["novo", "qualificado"])
+        .lt("ultima_interacao", corte.toISOString())
+        .limit(500);
+      const convs = (data ?? []) as unknown as Array<{
+        id: string; cliente_id: string; clientes: { telefone: string; opt_out: boolean } | null;
+      }>;
+      const out: LeadParaFollowup[] = [];
+      for (const c of convs) {
+        if (!c.clientes?.telefone || c.clientes.opt_out) continue;
+        // a última mensagem precisa ser nossa (saída) — lead não respondeu
+        const { data: ultima } = await sb
+          .from("mensagens").select("direcao").eq("conversa_id", c.id)
+          .order("criado_em", { ascending: false }).limit(1).maybeSingle();
+        if ((ultima as { direcao?: string } | null)?.direcao !== "saida") continue;
+        // toque = nº de follow-ups já enviados + 1; para após 3 (default plano)
+        const { count } = await sb
+          .from("disparos").select("id", { count: "exact", head: true })
+          .eq("cliente_id", c.cliente_id).eq("agente", "followup");
+        const toque = (count ?? 0) + 1;
+        if (toque > 3) continue;
+        out.push({ clienteId: c.cliente_id, numero: c.clientes.telefone, toque });
+      }
+      return out;
+    },
+
+    async listarImoveisNovos(): Promise<ImovelNovo[]> {
+      const corte = new Date(Date.now() - 7 * 86_400_000); // "novo" = últimos 7d (dedup radar é permanente)
+      const { data } = await sb
+        .from("imoveis")
+        .select("id, titulo, preco, regiao, tipo, transacao")
+        .eq("status", "ativo")
+        .gte("criado_em", corte.toISOString())
+        .limit(200);
+      const rows = (data ?? []) as Array<{
+        id: string; titulo: string; preco: number | string; regiao: string | null; tipo: string; transacao: string;
+      }>;
+      return rows.map((i) => ({
+        id: i.id, titulo: i.titulo, preco: Number(i.preco),
+        regiao: i.regiao, tipo: i.tipo, transacao: i.transacao,
+      }));
+    },
+
+    async listarClientesElegiveisParaImovel(imovel: ImovelNovo): Promise<ClienteElegivel[]> {
+      // Match cliente×imóvel: orçamento em SQL (numérico, seguro); tipo/região no código.
+      const preco = Number(imovel.preco);
+      const { data } = await sb
+        .from("clientes")
+        .select("id, telefone, tipo, regiao, orcamento_min, orcamento_max")
+        .eq("elegivel_proativo", true)
+        .eq("opt_out", false)
+        .or(`orcamento_max.is.null,orcamento_max.gte.${preco}`)
+        .or(`orcamento_min.is.null,orcamento_min.lte.${preco}`)
+        .limit(1000);
+      const rows = (data ?? []) as Array<{
+        id: string; telefone: string; tipo: string | null; regiao: string | null;
+      }>;
+      return rows
+        .filter((c) => c.tipo == null || c.tipo === imovel.tipo)
+        .filter((c) => imovel.regiao == null || c.regiao == null || c.regiao === imovel.regiao)
+        .filter((c) => !!c.telefone)
+        .map((c) => ({ clienteId: c.id, numero: c.telefone }));
+    },
+
+    async listarClientesFrios(): Promise<ClienteFrio[]> {
+      const corte = new Date(Date.now() - 30 * 86_400_000); // >30d sem interação (default já no cron)
+      const { data } = await sb
+        .from("conversas")
+        .select("cliente_id, clientes(telefone, nome, elegivel_proativo, opt_out)")
+        .not("estado", "in", "(fechado,perdido)")
+        .lt("ultima_interacao", corte.toISOString())
+        .limit(1000);
+      const convs = (data ?? []) as unknown as Array<{
+        cliente_id: string;
+        clientes: { telefone: string; nome: string | null; elegivel_proativo: boolean; opt_out: boolean } | null;
+      }>;
+      const out: ClienteFrio[] = [];
+      const vistos = new Set<string>();
+      for (const c of convs) {
+        const cl = c.clientes;
+        if (!cl?.telefone || !cl.elegivel_proativo || cl.opt_out) continue;
+        if (vistos.has(c.cliente_id)) continue;
+        vistos.add(c.cliente_id);
+        out.push({ clienteId: c.cliente_id, numero: cl.telefone, nome: cl.nome });
+      }
+      return out;
+    },
+
+    async listarClientesFechados(): Promise<ClienteFechado[]> {
+      // FLAG ZX LAB: o schema não tem `fechado_em`; usamos `ultima_interacao` como proxy
+      // do momento do fechamento. Idempotência mensal (dedup) evita repetição.
+      // Janelas (default plano): toque 1 ≈ D+3, toque 2 ≈ D+30.
+      const now = Date.now();
+      const { data } = await sb
+        .from("conversas")
+        .select("cliente_id, ultima_interacao, clientes(telefone)")
+        .eq("estado", "fechado")
+        .limit(1000);
+      const convs = (data ?? []) as unknown as Array<{
+        cliente_id: string; ultima_interacao: string; clientes: { telefone: string } | null;
+      }>;
+      const out: ClienteFechado[] = [];
+      for (const c of convs) {
+        if (!c.clientes?.telefone) continue;
+        const dias = (now - new Date(c.ultima_interacao).getTime()) / 86_400_000;
+        let toque: 1 | 2 | null = null;
+        if (dias >= 3 && dias < 14) toque = 1;
+        else if (dias >= 28 && dias < 45) toque = 2;
+        if (toque === null) continue;
+        out.push({ clienteId: c.cliente_id, numero: c.clientes.telefone, toque });
+      }
+      return out;
     },
   };
 }
