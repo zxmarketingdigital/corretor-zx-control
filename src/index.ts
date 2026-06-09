@@ -10,6 +10,7 @@ import { runSyncCatalog } from "./crons/sync-catalog";
 import { createAdapter } from "./adapters/whatsapp/index";
 import { geminiFlash } from "./gemini/client";
 import { dispatch } from "./scheduler/scheduler";
+import { createDb, createSchedulerDb } from "./db/supabase";
 
 export interface Env {
   SUPABASE_URL: string;
@@ -23,17 +24,6 @@ export interface Env {
   PANEL_TOKEN: string;
   CORRETOR_NOME: string;
   GOOGLE_REVIEW_LINK: string;
-}
-
-// Stub DB — real implementation connects to Supabase at deploy time via injected deps.
-function makeStubDb(_env: Env) {
-  return {
-    existeDisparo: async () => false,
-    contarEnviosHora: async () => 0,
-    contarEnviosDia: async () => 0,
-    clienteOptOut: async () => false,
-    registrarDisparo: async () => {},
-  };
 }
 
 export default {
@@ -57,16 +47,17 @@ export default {
       }
       const body = await request.json().catch(() => null);
       const adapter = createAdapter(env);
+      const db = createDb(env);
       await handleWebhook(body, {
         parseWebhook: (b) => adapter.parseWebhook(b),
-        getOrCreateCliente: async () => ({ id: "", nome: null, opt_out: false }),
-        getHistorico: async () => [],
+        getOrCreateCliente: (tel) => db.getOrCreateCliente(tel),
+        getHistorico: (id) => db.getHistorico(id),
         gemini: (p) => geminiFlash(p, env),
-        matchImoveis: async () => [],
-        upsertPerfilCliente: async () => {},
-        saveMsg: async () => {},
+        matchImoveis: (perfil) => db.matchImoveis(perfil),
+        upsertPerfilCliente: (id, perfil) => db.upsertPerfilCliente(id, perfil),
+        saveMsg: (id, dir, txt) => db.saveMsg(id, dir, txt),
         send: (n, m) => adapter.send(n, m),
-        setOptOut: async () => {},
+        setOptOut: (id) => db.setOptOut(id),
         nomeCorretor: env.CORRETOR_NOME ?? "Corretor",
       });
       return new Response("ok", { status: 200 });
@@ -74,33 +65,36 @@ export default {
 
     // Panel API — import endpoints
     if (pathname === "/api/import/imoveis" && request.method === "POST") {
+      const db = createDb(env);
       return handleImportImoveis(request, {
-        upsertImoveis: async () => ({ inseridos: 0, atualizados: 0 }),
-        upsertClientes: async () => ({ inseridos: 0, atualizados: 0 }),
+        upsertImoveis: (rows) => db.upsertImoveis(rows as Parameters<typeof db.upsertImoveis>[0]),
+        upsertClientes: (rows) => db.upsertClientes(rows as Parameters<typeof db.upsertClientes>[0]),
       });
     }
     if (pathname === "/api/import/clientes" && request.method === "POST") {
+      const db = createDb(env);
       return handleImportClientes(request, {
-        upsertImoveis: async () => ({ inseridos: 0, atualizados: 0 }),
-        upsertClientes: async () => ({ inseridos: 0, atualizados: 0 }),
+        upsertImoveis: (rows) => db.upsertImoveis(rows as Parameters<typeof db.upsertImoveis>[0]),
+        upsertClientes: (rows) => db.upsertClientes(rows as Parameters<typeof db.upsertClientes>[0]),
       });
     }
 
     // Panel API
     if (pathname.startsWith("/api/")) {
       const adapter = createAdapter(env);
+      const db = createDb(env);
       return handleApi(request, {
         panelToken: env.PANEL_TOKEN ?? "",
-        listImoveis: async () => [],
-        createImovel: async () => ({}),
-        listClientes: async () => [],
-        listConversas: async () => [],
-        listVisitas: async () => [],
-        updateVisitaStatus: async () => {},
-        listDisparos: async () => [],
+        listImoveis: () => db.listImoveis(),
+        createImovel: (data) => db.createImovel(data),
+        listClientes: () => db.listClientes(),
+        listConversas: (id) => db.listConversas(id),
+        listVisitas: () => db.listVisitas(),
+        updateVisitaStatus: (id, status) => db.updateVisitaStatus(id, status),
+        listDisparos: () => db.listDisparos(),
         adapterStatus: () => adapter.status(),
-        getConfig: async () => ({}),
-        setConfig: async () => {},
+        getConfig: () => db.getConfig(),
+        setConfig: (data) => db.setConfig(data),
       });
     }
 
@@ -109,18 +103,26 @@ export default {
 
   async scheduled(_event: ScheduledController, env: Env, _ctx: ExecutionContext): Promise<void> {
     const adapter = createAdapter(env);
-    const db = makeStubDb(env);
+    const db = createSchedulerDb(env);
+    const cat = createDb(env);
     const dispatchFn = (opts: Parameters<typeof dispatch>[2]) => dispatch(db, adapter, opts);
     const gemini = (p: string) => geminiFlash(p, env);
 
-    // Sync catalog feeds before agents so radar sees fresh listings
+    // Sync catalog feeds before agents so radar sees fresh listings (real config + upsert).
     await runSyncCatalog({
-      getConfig: async () => null,
-      setConfig: async () => {},
-      upsertImoveis: async () => ({ inseridos: 0, atualizados: 0 }),
-      fetchText: async (url) => { const r = await fetch(url); return r.text(); },
+      getConfig: (chave) => cat.getConfigKey(chave),
+      setConfig: (chave, valor) => cat.setConfigKey(chave, valor),
+      upsertImoveis: (rows) => cat.upsertImoveis(rows),
+      fetchText: async (u) => {
+        const r = await fetch(u);
+        return r.text();
+      },
     });
 
+    // TODO(fatia-2 — cadências proativas): as funções `listar...` abaixo retornam []
+    // até a camada de seleção por cadência ser implementada (defaults do plano: anti-no-show 36h,
+    // pós-venda D+3/D+30, reativador 30d, follow-up multi-toque). O scheduler/dispatch já é real
+    // (tabela disparos), então assim que as listas retornarem dados os proativos disparam com anti-ban.
     await runAntiNoshow({
       listarVisitasProximas: async () => [],
       dispatch: dispatchFn,
