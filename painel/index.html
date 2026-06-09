@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Corretor ZX Control</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <header>
+    <span id="badge-status" title="Status Evolution"></span>
+    <h1>Corretor ZX Control</h1>
+    <nav>
+      <button data-tab="catalogo" class="active">Catálogo</button>
+      <button data-tab="carteira">Carteira</button>
+      <button data-tab="conversas">Conversas</button>
+      <button data-tab="visitas">Visitas</button>
+      <button data-tab="operacao">Operação</button>
+      <button data-tab="config">Config</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- Catálogo -->
+    <div id="tab-catalogo" class="tab active">
+      <div class="card">
+        <div class="card-header">
+          <h2>Catálogo de Imóveis</h2>
+          <span style="margin-left:auto;color:var(--muted);font-size:12px">⚠ = sem update há >7 dias</span>
+        </div>
+        <table>
+          <thead><tr><th>Título</th><th>Tipo</th><th>Transação</th><th>Preço</th><th>Região</th><th>Status</th></tr></thead>
+          <tbody id="table-catalogo"><tr><td colspan="6" style="text-align:center;padding:32px;color:var(--muted)">Carregando…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Carteira -->
+    <div id="tab-carteira" class="tab">
+      <div class="card">
+        <div class="card-header"><h2>Carteira de Clientes</h2></div>
+        <table>
+          <thead><tr><th>Nome</th><th>Telefone</th><th>Região</th><th>Tipo</th><th>Estado</th><th>Proativo</th></tr></thead>
+          <tbody id="table-carteira"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Conversas -->
+    <div id="tab-conversas" class="tab">
+      <div class="card">
+        <div class="card-header"><h2>Conversas</h2></div>
+        <table>
+          <thead><tr><th>Cliente</th><th>Estado</th><th>Última interação</th><th>Mensagens</th></tr></thead>
+          <tbody id="table-conversas"><tr><td colspan="4" style="text-align:center;padding:32px;color:var(--muted)">Selecione uma conversa</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Visitas -->
+    <div id="tab-visitas" class="tab">
+      <div class="card">
+        <div class="card-header"><h2>Visitas Agendadas</h2></div>
+        <table>
+          <thead><tr><th>Cliente</th><th>Data/Hora</th><th>Local</th><th>Ação</th></tr></thead>
+          <tbody id="table-visitas"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Operação -->
+    <div id="tab-operacao" class="tab">
+      <div class="card">
+        <div class="card-header">
+          <h2>Disparos (audit log)</h2>
+          <span id="evo-status" style="margin-left:auto;font-size:12px;color:var(--muted)"></span>
+        </div>
+        <div id="log-disparos" style="max-height:500px;overflow-y:auto;font-size:12px"></div>
+      </div>
+    </div>
+
+    <!-- Config -->
+    <div id="tab-config" class="tab">
+      <div class="card" style="max-width:480px">
+        <div class="card-header"><h2>Configuração</h2></div>
+        <form id="form-config" style="padding:20px;display:flex;flex-direction:column;gap:12px">
+          <div class="form-group">
+            <label>Adapter WhatsApp</label>
+            <select name="whatsapp_provider">
+              <option value="evolution">Evolution API (padrão)</option>
+              <option value="zapi">Z-API</option>
+              <option value="meta">Meta Cloud API</option>
+              <option value="uazapi">uazapi</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Evolution URL</label>
+            <input type="url" name="evolution_url" placeholder="https://evo.seuservidor.com">
+          </div>
+          <div class="form-group">
+            <label>Evolution Instance</label>
+            <input type="text" name="evolution_instance" placeholder="corretor1">
+          </div>
+          <div class="form-group">
+            <label>Follow-up: dias sem resposta para 1º toque</label>
+            <input type="number" name="followup_dias" value="1" min="1" max="30">
+          </div>
+          <div class="form-group">
+            <label>Reativador: dias inativo para reativar</label>
+            <input type="number" name="reativador_dias" value="30" min="7" max="180">
+          </div>
+          <button type="submit" class="btn btn-primary">Salvar configuração</button>
+        </form>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div id="toast"></div>
+<script src="config.js"></script>
+<script src="main.js"></script>
+</body>
+</html>

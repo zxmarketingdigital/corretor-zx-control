@@ -1,0 +1,5 @@
+// Copie para config.js e preencha (NÃO commitar config.js com valores reais).
+window.CZX_CONFIG = {
+  WORKER_URL: "https://corretor-zx-control.seusubdominio.workers.dev",
+  BEARER_TOKEN: "seu-panel-token-aqui",
+};

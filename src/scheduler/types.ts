@@ -1,0 +1,37 @@
+export type AgenteName =
+  | "antinoshow"
+  | "followup"
+  | "radar"
+  | "reativador"
+  | "posvenda";
+
+export interface DispatchOptions {
+  clienteId: string;
+  numero: string;
+  agente: AgenteName;
+  imovelId?: string;
+  mensagem: string;
+  window: { start: number; end: number }; // horas UTC 0-23
+  now?: Date; // injetável para testes
+}
+
+// Interface mínima do banco que o scheduler precisa (mockável em testes).
+export interface DbLike {
+  existeDisparo(clienteId: string, agente: AgenteName, chave: string): Promise<boolean>;
+  contarEnviosHora(numero: string, desde: Date): Promise<number>;
+  contarEnviosDia(numero: string, desde: Date): Promise<number>;
+  clienteOptOut(clienteId: string): Promise<boolean>;
+  registrarDisparo(params: {
+    clienteId: string;
+    numero: string;
+    agente: AgenteName;
+    imovelId?: string;
+    chave: string;
+    status: "enviado" | "bloqueado";
+  }): Promise<void>;
+}
+
+// Interface mínima do adapter de WhatsApp (mockável em testes).
+export interface AdapterLike {
+  send(numero: string, mensagem: string): Promise<void>;
+}
