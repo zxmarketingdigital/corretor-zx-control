@@ -48,7 +48,6 @@ Pergunte e vá anotando. Para cada uma, explique onde encontrar:
 | `CORRETOR_NOME` | Nome do corretor cliente (aparece nas mensagens do WhatsApp) |
 | `SUPABASE_URL` | Supabase → Project Settings → API → Project URL |
 | `SUPABASE_SERVICE_KEY` | Supabase → Project Settings → API → service_role key (secreta) |
-| `SUPABASE_ANON_KEY` | Supabase → Project Settings → API → anon key (vai pro painel) |
 | `GEMINI_API_KEY` | Google AI Studio → aistudio.google.com/apikey (tem free tier) |
 | `WHATSAPP_PROVIDER` | Usar `evolution` (padrão deste pacote) |
 | `EVOLUTION_URL` | URL da instância Evolution do aluno (ex: `http://localhost:8080`) |

@@ -1,5 +1,6 @@
+// gemini-2.0-flash foi aposentado (free tier limit:0 → 429). A linha ZX Control usa 2.5-flash.
 const GEMINI_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
 export class GeminiError extends Error {
   constructor(

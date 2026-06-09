@@ -72,7 +72,6 @@ function checkVars(env) {
     "EVOLUTION_API_KEY",
     "SUPABASE_URL",
     "SUPABASE_SERVICE_KEY",
-    "SUPABASE_ANON_KEY",
     "GEMINI_API_KEY",
     "PANEL_TOKEN",
     "GOOGLE_REVIEW_LINK",
@@ -146,7 +145,7 @@ async function checkWhatsApp(env) {
 
 /** Check 4 — Gemini: chamada trivial com GEMINI_API_KEY. */
 async function checkGemini(apiKey, env) {
-  const model = env["GEMINI_MODEL"] || "gemini-2.0-flash";
+  const model = env["GEMINI_MODEL"] || "gemini-2.5-flash";
   const url   = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   const body  = JSON.stringify({
     contents: [{ parts: [{ text: "Responda apenas a palavra: ok" }] }],

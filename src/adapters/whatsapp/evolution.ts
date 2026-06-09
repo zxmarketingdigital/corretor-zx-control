@@ -53,12 +53,18 @@ export class EvolutionAdapter implements WhatsAppAdapter {
     );
     if (!res.ok) return "disconnected";
 
+    // Evolution v2 retorna formato plano {name, connectionStatus}; v1 usava
+    // {instance:{instanceName,status}}. Suportamos os dois.
     const data = (await res.json()) as Array<{
+      name?: string;
+      connectionStatus?: string;
       instance?: { instanceName?: string; status?: string };
     }>;
-    const found = data.find((d) => d.instance?.instanceName === this.instance);
+    const found = data.find(
+      (d) => (d.name ?? d.instance?.instanceName) === this.instance,
+    );
     if (!found) return "disconnected";
-    const s = found.instance?.status;
+    const s = found.connectionStatus ?? found.instance?.status;
     if (s === "open") return "connected";
     if (s === "connecting") return "qr_needed";
     return "disconnected";

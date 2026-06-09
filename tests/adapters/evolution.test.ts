@@ -61,6 +61,19 @@ describe("EvolutionAdapter.status", () => {
     const adapter = new EvolutionAdapter(mockEnv, async () => httpOk(body));
     expect(await adapter.status()).toBe("qr_needed");
   });
+
+  // Evolution v2.x — formato plano {name, connectionStatus} (o que o servidor real retorna)
+  it("retorna 'connected' no formato v2 (name/connectionStatus)", async () => {
+    const body = [{ name: "corretor1", connectionStatus: "open" }];
+    const adapter = new EvolutionAdapter(mockEnv, async () => httpOk(body));
+    expect(await adapter.status()).toBe("connected");
+  });
+
+  it("retorna 'qr_needed' no formato v2 quando connecting", async () => {
+    const body = [{ name: "corretor1", connectionStatus: "connecting" }];
+    const adapter = new EvolutionAdapter(mockEnv, async () => httpOk(body));
+    expect(await adapter.status()).toBe("qr_needed");
+  });
 });
 
 // ── parseWebhook ──────────────────────────────────────────────────────────
