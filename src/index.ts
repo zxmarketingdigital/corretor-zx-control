@@ -41,6 +41,14 @@ export default {
     const url = new URL(request.url);
     const { pathname } = url;
 
+    // Health check (smoke test + monitoramento)
+    if (pathname === "/health" && request.method === "GET") {
+      return new Response(JSON.stringify({ status: "ok", product: "corretor-zx-control" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
     // Webhook (Agente 1 — reativo)
     if (pathname === "/webhook" && request.method === "POST") {
       const secret = request.headers.get("x-webhook-secret") ?? "";

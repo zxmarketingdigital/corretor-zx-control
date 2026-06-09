@@ -1,7 +1,7 @@
 // Painel Corretor ZX Control — SPA vanilla, sem bundler.
-// Lê WORKER_URL e BEARER_TOKEN de window.CZX_CONFIG (definido em config.js).
+// Lê WORKER_URL e BEARER_TOKEN de window.APP_CONFIG (definido em config.js).
 
-const cfg = window.CZX_CONFIG ?? {};
+const cfg = window.APP_CONFIG ?? {};
 const BASE = (cfg.WORKER_URL ?? "").replace(/\/$/, "");
 const TOKEN = cfg.BEARER_TOKEN ?? "";
 
