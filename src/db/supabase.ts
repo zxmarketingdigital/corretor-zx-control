@@ -350,22 +350,24 @@ export function createDb(env: DbEnv) {
     },
 
     async listarClientesFechados(): Promise<ClienteFechado[]> {
-      // FLAG ZX LAB: o schema não tem `fechado_em`; usamos `ultima_interacao` como proxy
-      // do momento do fechamento. Idempotência mensal (dedup) evita repetição.
+      // Usa `fechado_em` (preenchido pelo trigger da migration 0003); fallback p/
+      // ultima_interacao em linhas legadas. Idempotência mensal (dedup) evita repetição.
       // Janelas (default plano): toque 1 ≈ D+3, toque 2 ≈ D+30.
       const now = Date.now();
       const { data } = await sb
         .from("conversas")
-        .select("cliente_id, ultima_interacao, clientes(telefone)")
+        .select("cliente_id, fechado_em, ultima_interacao, clientes(telefone)")
         .eq("estado", "fechado")
         .limit(1000);
       const convs = (data ?? []) as unknown as Array<{
-        cliente_id: string; ultima_interacao: string; clientes: { telefone: string } | null;
+        cliente_id: string; fechado_em: string | null; ultima_interacao: string;
+        clientes: { telefone: string } | null;
       }>;
       const out: ClienteFechado[] = [];
       for (const c of convs) {
         if (!c.clientes?.telefone) continue;
-        const dias = (now - new Date(c.ultima_interacao).getTime()) / 86_400_000;
+        const ref = c.fechado_em ?? c.ultima_interacao;
+        const dias = (now - new Date(ref).getTime()) / 86_400_000;
         let toque: 1 | 2 | null = null;
         if (dias >= 3 && dias < 14) toque = 1;
         else if (dias >= 28 && dias < 45) toque = 2;

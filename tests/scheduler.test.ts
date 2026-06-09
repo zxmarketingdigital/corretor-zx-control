@@ -5,7 +5,9 @@ import { dispatch } from "../src/scheduler/scheduler";
 import type { DbLike, AdapterLike, DispatchOptions } from "../src/scheduler/types";
 
 // ── helpers ────────────────────────────────────────────────────────────────
-const NOW_9H = new Date("2026-01-01T09:00:00Z"); // dentro da janela 8–20
+// Janela 8–18 em horário do Brasil (America/Sao_Paulo = UTC-3).
+// 15:00Z = 12:00 BRT → dentro da janela.
+const NOW_9H = new Date("2026-01-01T15:00:00Z");
 
 function baseOpts(overrides: Partial<DispatchOptions> = {}): DispatchOptions {
   return {
@@ -13,7 +15,7 @@ function baseOpts(overrides: Partial<DispatchOptions> = {}): DispatchOptions {
     numero: "5511999990001",
     agente: "followup",
     mensagem: "Olá!",
-    window: { start: 8, end: 20 },
+    window: { start: 8, end: 18 },
     now: NOW_9H,
     ...overrides,
   };
@@ -60,7 +62,7 @@ describe("(b) janela inferior+superior", () => {
     const result = await dispatch(
       makeDb(),
       makeAdapter(),
-      baseOpts({ now: new Date("2026-01-01T07:30:00Z") }),
+      baseOpts({ now: new Date("2026-01-01T10:30:00Z") }), // 07:30 BRT
     );
     expect(result).toBe("bloqueado");
   });
@@ -69,7 +71,7 @@ describe("(b) janela inferior+superior", () => {
     const result = await dispatch(
       makeDb(),
       makeAdapter(),
-      baseOpts({ now: new Date("2026-01-01T20:00:00Z") }),
+      baseOpts({ now: new Date("2026-01-01T21:00:00Z") }), // 18:00 BRT
     );
     expect(result).toBe("bloqueado");
   });
@@ -78,7 +80,7 @@ describe("(b) janela inferior+superior", () => {
     const result = await dispatch(
       makeDb(),
       makeAdapter(),
-      baseOpts({ now: new Date("2026-01-01T08:00:00Z") }),
+      baseOpts({ now: new Date("2026-01-01T11:00:00Z") }), // 08:00 BRT
     );
     expect(result).toBe("enviado");
   });

@@ -26,7 +26,7 @@ export async function runFollowup(deps: FollowupDeps): Promise<void> {
       numero: lead.numero,
       agente: "followup",
       mensagem,
-      window: { start: 8, end: 20 },
+      window: { start: 8, end: 18 },
       now,
     });
   }

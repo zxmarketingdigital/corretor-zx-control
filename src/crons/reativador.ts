@@ -27,7 +27,7 @@ export async function runReativador(deps: ReativadorDeps): Promise<void> {
       numero: cliente.numero,
       agente: "reativador",
       mensagem,
-      window: { start: 8, end: 20 },
+      window: { start: 8, end: 18 },
       now,
     });
   }

@@ -38,7 +38,7 @@ export async function runAntiNoshow(deps: AntiNoshowDeps): Promise<void> {
       agente: "antinoshow",
       imovelId: undefined,
       mensagem: `Olá! Passando para confirmar sua visita em "${visita.local}" amanhã às ${dataHora}. Você confirma presença?`,
-      window: { start: 8, end: 20 },
+      window: { start: 8, end: 18 },
       now,
     });
   }

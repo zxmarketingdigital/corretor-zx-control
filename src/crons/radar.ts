@@ -40,7 +40,7 @@ export async function runRadar(deps: RadarDeps): Promise<void> {
         agente: "radar",
         imovelId: imovel.id,
         mensagem,
-        window: { start: 8, end: 20 },
+        window: { start: 8, end: 18 },
         now,
       });
     }

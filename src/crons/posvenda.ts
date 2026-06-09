@@ -30,7 +30,7 @@ export async function runPosvenda(deps: PosvendaDeps): Promise<void> {
       numero: cliente.numero,
       agente: "posvenda",
       mensagem,
-      window: { start: 8, end: 20 },
+      window: { start: 8, end: 18 },
       now,
     });
   }

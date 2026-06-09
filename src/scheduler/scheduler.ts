@@ -9,13 +9,24 @@ import type { AdapterLike, AgenteName, DbLike, DispatchOptions } from "./types";
 const RATE_CAP_HORA = 20;
 const RATE_CAP_DIA = 80;
 
+// Janela de disparo é em horário do Brasil (America/Sao_Paulo). Usamos Intl pra
+// ser robusto a fuso/DST, em vez de assumir UTC.
+function horaSaoPaulo(now: Date): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Sao_Paulo",
+    hour: "2-digit",
+    hour12: false,
+  }).formatToParts(now);
+  return parseInt(parts.find((p) => p.type === "hour")?.value ?? "0", 10) % 24;
+}
+
 export async function dispatch(
   db: DbLike,
   adapter: AdapterLike,
   opts: DispatchOptions,
 ): Promise<"enviado" | "bloqueado"> {
   const now = opts.now ?? new Date();
-  const hora = now.getUTCHours();
+  const hora = horaSaoPaulo(now);
 
   // (e) opt-out
   if (await db.clienteOptOut(opts.clienteId)) return "bloqueado";
