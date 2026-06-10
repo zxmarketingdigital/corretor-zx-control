@@ -1,0 +1,78 @@
+:root {
+  --bg: #f8fafc;
+  --surface: #fff;
+  --border: #e2e8f0;
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --danger: #dc2626;
+  --success: #16a34a;
+  --warn: #d97706;
+  --text: #1e293b;
+  --muted: #64748b;
+  --radius: 8px;
+  --font: system-ui, -apple-system, sans-serif;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font); background: var(--bg); color: var(--text); font-size: 14px; }
+a { color: var(--primary); text-decoration: none; }
+
+/* Layout */
+#app { display: flex; flex-direction: column; min-height: 100vh; }
+header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 24px; display: flex; align-items: center; gap: 16px; height: 56px; }
+header h1 { font-size: 16px; font-weight: 700; }
+nav { display: flex; gap: 4px; margin-left: auto; }
+nav button { padding: 6px 14px; border: none; border-radius: var(--radius); cursor: pointer; font-size: 13px; background: transparent; color: var(--muted); }
+nav button.active, nav button:hover { background: var(--bg); color: var(--primary); font-weight: 600; }
+#badge-status { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); }
+#badge-status.connected { background: var(--success); }
+#badge-status.qr_needed { background: var(--warn); }
+
+main { flex: 1; padding: 24px; max-width: 1200px; width: 100%; margin: 0 auto; }
+
+/* Tabs */
+.tab { display: none; }
+.tab.active { display: block; }
+
+/* Cards / Tables */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.card-header { padding: 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+.card-header h2 { font-size: 15px; font-weight: 600; }
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 10px 16px; text-align: left; border-bottom: 1px solid var(--border); }
+th { font-weight: 600; color: var(--muted); font-size: 12px; text-transform: uppercase; background: var(--bg); }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: #f1f5f9; }
+
+/* Badges */
+.badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+.badge.ativo { background: #dcfce7; color: var(--success); }
+.badge.inativo, .badge.desatualizado { background: #fef9c3; color: var(--warn); }
+.badge.vendido, .badge.fechado { background: #dbeafe; color: var(--primary); }
+.badge.perdido { background: #fee2e2; color: var(--danger); }
+.badge.novo { background: #f1f5f9; color: var(--muted); }
+
+/* Botões */
+.btn { padding: 7px 16px; border-radius: var(--radius); border: none; cursor: pointer; font-size: 13px; font-weight: 500; transition: opacity .15s; }
+.btn:hover { opacity: .85; }
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-danger { background: var(--danger); color: #fff; }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+
+/* Modal */
+.modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 100; align-items: center; justify-content: center; }
+.modal-backdrop.open { display: flex; }
+.modal { background: var(--surface); border-radius: var(--radius); padding: 24px; min-width: 360px; max-width: 520px; width: 100%; }
+.modal h3 { font-size: 16px; margin-bottom: 16px; }
+.form-group { margin-bottom: 12px; }
+label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+input, select { width: 100%; padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+
+/* Toast */
+#toast { position: fixed; bottom: 24px; right: 24px; background: var(--text); color: #fff; padding: 10px 18px; border-radius: var(--radius); font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+#toast.show { opacity: 1; }
+
+/* Operação */
+.log-entry { padding: 8px 16px; border-bottom: 1px solid var(--border); font-size: 12px; font-family: monospace; }
+.log-entry.enviado { color: var(--success); }
+.log-entry.bloqueado { color: var(--muted); }

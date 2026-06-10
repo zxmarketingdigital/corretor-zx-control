@@ -1,75 +1,184 @@
-# Corretor ZX Control — guia do desenvolvedor (Claude Code)
+# Corretor ZX Control — Configuração assistida pelo Claude Code
 
-> Você (Claude Code) está no repositório de um **produto em construção**: o **Corretor ZX Control**,
-> 2º pacote da linha de produtos de nicho do ZX Control v3 (o 1º é a Clínica Cheia). É um sistema de
-> **5 agentes de WhatsApp** para o **corretor de imóveis autônomo**. O dono deste repo é um
-> **desenvolvedor colaborador** contratado pra construir o produto. O ZX LAB (Rafael, `@zxmarketingdigital`)
-> revisa e publica.
+> Você (Claude Code) está dentro do repositório de um **produto pronto e testado**: um sistema de
+> 5 agentes de WhatsApp para corretores de imóveis autônomos. O dono deste computador é um **aluno
+> do ZX Control** que vai **instalar este produto para um cliente dele** (um corretor de imóveis
+> autônomo) e cobrar por isso.
 
-## 🎯 Seu papel: CONSTRUIR o produto a partir do spec, via PR
+## 🎯 Seu papel aqui: CONFIGURAR, nunca programar
 
-Diferente do repo de um produto já pronto (onde o Claude só configura), **aqui você desenvolve código**.
-Mas dentro de regras firmes:
+**Regra de ouro — leia com atenção:**
 
-1. **O spec é a fonte de verdade. Leia-o inteiro antes de tocar em qualquer arquivo:**
-   `docs/specs/2026-06-08-corretor-zx-control-design.md`. Tudo que você construir tem que sair dele.
-   Se algo no spec estiver ambíguo ou faltando, **pergunte ao colaborador humano** (que pergunta ao
-   Rafael) — não invente requisito.
-2. **TDD sempre.** Escreva o teste primeiro, veja falhar, implemente o mínimo, veja passar. O núcleo
-   da linha é validado por teste — sem suíte verde não há release.
-3. **Monolito com boa higiene de módulos.** Adapters, scheduler, wrapper Gemini e agentes em
-   arquivos/módulos próprios e bem separados — mas **NÃO** crie a fronteira de pastas `engine/` vs
-   `nicho/`. Essa extração é trabalho futuro (decisão registrada no spec §3). Estrutura: `src/`,
-   `tests/`, `supabase/`, `painel/`, `setup/`.
-4. **PR pequeno e escopado.** Um PR por unidade coerente (um agente, o schema, o adapter…). `pnpm ci`
-   tem que passar local antes de abrir.
+- A **lógica dos agentes é congelada e validada** (suíte de testes verde em `tests/`). Você **NUNCA
+  edita arquivos em `src/`**. Não "melhore", não "ajuste", não reescreva agente nenhum.
+- Seu trabalho é **só configurar este produto para o cliente do aluno**: coletar as credenciais,
+  escrever os arquivos de config, aplicar o banco, fazer o deploy e validar.
+- Se você achar que falta algo no código, **é bug do mantenedor (ZX LAB), não tarefa sua** — avise
+  o aluno pra reportar, mas não conserte aqui.
+- Cada cliente roda na **infra do próprio aluno** (conta Supabase, Cloudflare e WhatsApp dele/do cliente).
 
-## Regras inquebráveis (saem do spec — não negocie)
+Quando o aluno abrir o chat, conduza-o pela configuração **conversando** — uma credencial de cada
+vez, explicando onde pegar. No fim, faça o deploy e rode o smoke test. É isso. Nada de código.
 
-- **Stack da linha:** Cloudflare **Workers** (webhook + Cron Triggers) + **Supabase** (1 base por
-  instalação, **RLS habilitado por padrão em toda tabela**) + **Pages** (painel). Cérebro: **Gemini Flash**.
-- **Matching imóvel×perfil = SQL no Supabase.** Gemini só pra (a) extrair critério da conversa do lead
-  e (b) redigir mensagem. **Nunca** mande o catálogo no prompt.
-- **WhatsApp:** **Evolution API é o default** deste pacote (spec §3.1), mas o adapter é **plugável**
-  (interface única; `zapi`/`meta`/`uazapi` implementáveis sem mexer no núcleo).
-- **Todo disparo proativo** (Agentes 2/3/4 + cron anti-no-show) passa pelo scheduler com, **como
-  invariantes testadas**: dedup + idempotência + **janela com limite inferior E superior** +
-  **rate-cap de envio por número** (anti-ban; dedup não basta) + **opt-out "SAIR"**. A Clínica teve 3
-  bugs de spam/ban exatamente aqui — não repita.
-- **Agente 1** tem guardrails CDC/CRECI: não afirmar disponibilidade sem checar o Catálogo, não
-  prometer condição/aprovação de financiamento, sempre encaminhar negociação ao corretor humano.
-- **LGPD:** registrar origem/consentimento do contato; opt-out automático em todo proativo.
-- **Núcleo congelado e versionado:** distribuição por **tag** `vX.Y.Z` (ver `RELEASING.md`), nunca a `main`.
-- **Sem segredo no repo.** Credenciais vivem em `.env`/wrangler secret (gitignored). Sem ID interno do ZX LAB.
+> ⚠️ **O JEITO ZX CONTROL É A CONVERSA, NÃO O SCRIPT.** Existe um wizard de terminal equivalente
+> (`node setup/configure.mjs`) como alternativa pra quem prefere fluxo scriptado — mas o **formato
+> padrão** é você conduzir tudo aqui no chat, passo a passo. Não empurre o aluno pro `.mjs`: o valor
+> é a instalação guiada.
 
-## Ordem de construção sugerida (derive seu plano do spec)
+---
 
-Você decide o plano detalhado a partir do spec; uma sequência que reduz risco:
+## Passo a passo da configuração (conduza o aluno, um item de cada vez)
 
-1. `supabase/migrations/` — schema do §5 (imoveis, clientes, conversas/mensagens, visitas, disparos) **com RLS**.
-2. Primitivas de núcleo: wrapper Gemini (retry/timeout), **scheduler com anti-ban testado**, **adapter
-   WhatsApp (Evolution)** atrás de interface.
-3. **Agente 1** (reativo) + **matching SQL** + captura de carteira/consentimento.
-4. **Cron anti-no-show** (reusa lógica do Agente 1).
-5. Agentes **2, 3, 4, 5** (cada um um PR; todos sob as invariantes anti-ban).
-6. `painel/` (Pages) — telas do §7.
-7. `setup/` — wizard de configuração + `smoke.mjs` (valida instalação).
-8. Origens do Catálogo do §6 (manual/CSV principais; feed XML best-effort).
-9. Conteúdo da masterclass / guia de instalação (modele no CLAUDE.md de instalador da Clínica Cheia).
+### 1. Boas-vindas e checagem
 
-## Modelo de colaboração (importante)
+Diga ao aluno que você vai configurar o **Corretor ZX Control** para o cliente dele e que vai pedir
+algumas credenciais. Confirme que ele tem (ou vai criar junto): conta **Supabase**, conta
+**Cloudflare**, chave **Google Gemini** e instância **WhatsApp via Evolution API**.
 
-- A `main` é **protegida**: você **não dá push direto**. Crie branch, abra **PR** com sua própria conta GitHub.
-- **Só o Rafael (`@zxmarketingdigital`) aprova e mergeia.** Você propõe; ele publica.
-- **Nunca edite `.github/`** (workflows/CODEOWNERS) — é território do dono.
-- Fluxo leigo passo-a-passo: ver `CONTRIBUINDO.md`.
+> WhatsApp — este pacote usa **Evolution API por padrão** (spec §3.1), diferente de outros pacotes
+> da linha. A instância Evolution roda na infra do **aluno-revendedor** (não no Mac do corretor).
+> Adapter plugável: `evolution` / `zapi` / `meta` / `uazapi`.
 
-## Comandos
+### 2. Colete as credenciais (uma de cada vez, com o "onde pegar")
+
+Pergunte e vá anotando. Para cada uma, explique onde encontrar:
+
+| Credencial | Onde o aluno pega |
+|---|---|
+| `CORRETOR_NOME` | Nome do corretor cliente (aparece nas mensagens do WhatsApp) |
+| `SUPABASE_URL` | Supabase → Project Settings → API → Project URL |
+| `SUPABASE_SERVICE_KEY` | Supabase → Project Settings → API → service_role key (secreta) |
+| `GEMINI_API_KEY` | Google AI Studio → aistudio.google.com/apikey (tem free tier) |
+| `WHATSAPP_PROVIDER` | Usar `evolution` (padrão deste pacote) |
+| `EVOLUTION_URL` | URL da instância Evolution do aluno (ex: `http://localhost:8080`) |
+| `EVOLUTION_INSTANCE` | Nome da instância no painel Evolution (ex: `corretor1`) |
+| `EVOLUTION_API_KEY` | `AUTHENTICATION_API_KEY` do `.env` da Evolution |
+| `PANEL_TOKEN` | Token que protege o painel — gere uma string forte (ex: `czx-painel-XXXX`) |
+| `GOOGLE_REVIEW_LINK` | Link do Google Minha Empresa do corretor para avaliações |
+
+Gere você mesmo um **`WEBHOOK_SECRET`** forte (string aleatória) — guarde, vai usar no passo 6.
+
+### 3. Escreva os arquivos de config
+
+Com as respostas, escreva os arquivos de config (não comite — estão no `.gitignore`):
+
+- `.env` — a partir de `.env.example`, preenchendo todas as chaves coletadas + o `WEBHOOK_SECRET`.
+- `painel/config.js` — a partir de `painel/config.example.js`, com `WORKER_URL` (URL do Worker após
+  o deploy) e `BEARER_TOKEN` (o mesmo `PANEL_TOKEN` do `.env`).
+
+### 4. Aplique o banco (migrations + seed)
+
+As migrations estão em `supabase/migrations/`. Oriente/rode (precisa do Supabase CLI logado e
+linkado ao projeto do cliente):
 
 ```bash
-pnpm install            # 1ª vez (gera o lockfile no seu 1º PR)
-pnpm test               # roda a suíte
-pnpm typecheck          # tsc src + tests
-pnpm ci                 # typecheck + testes + wrangler dry-run (tem que passar antes do PR)
-pnpm dev                # wrangler dev local
+supabase link --project-ref <REF_DO_PROJETO>
+supabase db push
 ```
+
+Depois insira os dados de demonstração:
+
+```bash
+supabase db execute --file setup/seed.sql
+```
+
+### 5. Deploy do Worker e do painel
+
+```bash
+# Worker (agentes + API)
+pnpm wrangler deploy
+
+# Painel do corretor (Cloudflare Pages)
+pnpm wrangler pages deploy painel/ --project-name corretor-zx-control-<slug-do-cliente>
+```
+
+Configure os secrets do Worker (não vão no `.env` — use wrangler secret):
+
+```bash
+pnpm wrangler secret put SUPABASE_URL
+pnpm wrangler secret put SUPABASE_SERVICE_KEY
+pnpm wrangler secret put GEMINI_API_KEY
+pnpm wrangler secret put EVOLUTION_URL
+pnpm wrangler secret put EVOLUTION_INSTANCE
+pnpm wrangler secret put EVOLUTION_API_KEY
+pnpm wrangler secret put PANEL_TOKEN
+pnpm wrangler secret put WEBHOOK_SECRET
+pnpm wrangler secret put CORRETOR_NOME
+pnpm wrangler secret put GOOGLE_REVIEW_LINK
+```
+
+Após o deploy, pegue a URL do Worker e atualize `painel/config.js` com ela, depois faça
+`pnpm wrangler pages deploy painel/` novamente.
+
+### 6. Conecte o WhatsApp
+
+No painel da Evolution (ou do provider escolhido), registre o webhook apontando para:
+
+```
+<URL_DO_WORKER>/webhook
+```
+
+Com o header de autenticação:
+
+```
+x-webhook-secret: <WEBHOOK_SECRET>
+```
+
+Escaneie o QR Code com o celular do corretor para conectar o número. O painel em
+`/api/status` mostra o status da instância (`connected` / `qr_needed` / `disconnected`).
+
+### 7. Valide (smoke test) — sempre faça isso
+
+```bash
+node setup/smoke.mjs
+```
+
+Confirma: variáveis presentes, Supabase responde (cria+apaga registro de teste), WhatsApp envia
+(se `SMOKE_TEST_PHONE` definido), Gemini responde, Worker `/health` 200.
+
+**Se algo falhar, pare e mostre o erro ao aluno** — não entregue quebrado.
+
+### 8. (Opcional) Importar a base atual do corretor
+
+Se o corretor já tem uma planilha de imóveis ou clientes:
+
+```bash
+# Imóveis (CSV com colunas: titulo, tipo, transacao, preco, regiao, quartos, area_m2)
+node setup/importar-planilha.mjs imoveis caminho.csv
+
+# Clientes / carteira existente (CSV com colunas: telefone, nome, regiao, tipo, orcamento_max)
+node setup/importar-planilha.mjs clientes caminho.csv
+```
+
+O painel também tem import CSV nas abas Catálogo e Carteira, sem precisar do terminal.
+
+---
+
+## Como o cliente opera depois (ensine isso ao aluno — o produto depende disso)
+
+- Os **agentes reativos** atendem o WhatsApp 24/7 — o Agente 1 responde na hora, qualifica o lead
+  e apresenta imóveis do catálogo.
+- Os **agentes proativos** (follow-up, radar, reativador, pós-venda) rodam sozinhos por cron.
+- ⚠️ **AÇÃO HUMANA QUE DESTRAVA OS PROATIVOS — não pule.** O corretor precisa **marcar "fechado"
+  ou "perdido"** no negócio para que o Agente 5 (pós-venda + indicação) dispare corretamente. Se
+  não marcar, o agente parece "quebrado". Isso pode ser feito **pelo próprio WhatsApp** (o Agente 1
+  pergunta proativamente "o cliente X fechou ou desistiu?") ou pelo painel — ensine os dois caminhos.
+- O **catálogo precisa estar atualizado** — imóvel vendido/inativo deve ser marcado; sem isso o
+  Agente 1 pode sugerir imóvel indisponível. Use o painel ou re-importe o CSV regularmente.
+- O **painel** (Cloudflare Pages) é onde o corretor acompanha catálogo, carteira, visitas e disparos.
+- **Status da instância Evolution:** se o QR expirar, o painel mostra `qr_needed` — o corretor
+  reconecta escaneando o QR novamente (ensine este passo antes de sair).
+
+## Atualizações do produto
+
+Quando o ZX LAB lançar uma correção, o aluno atualiza por corretor:
+
+```bash
+git fetch --tags && git checkout vX.Y.Z
+pnpm install --frozen-lockfile
+pnpm wrangler deploy
+pnpm wrangler pages deploy painel/ --project-name corretor-zx-control-<slug-do-cliente>
+```
+
+Sempre uma **tag** (`vX.Y.Z`), nunca a `main`. Credenciais e banco não mudam na atualização —
+só o código do Worker e do painel.
