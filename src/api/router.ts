@@ -7,8 +7,10 @@ export interface ApiDeps {
   listImoveis(): Promise<unknown[]>;
   createImovel(data: unknown): Promise<unknown>;
   listClientes(): Promise<unknown[]>;
+  createCliente(data: unknown): Promise<unknown>;
   listConversas(clienteId?: string): Promise<unknown[]>;
   listVisitas(): Promise<unknown[]>;
+  createVisita(data: unknown): Promise<unknown>;
   updateVisitaStatus(id: string, status: string): Promise<void>;
   listDisparos(): Promise<unknown[]>;
   adapterStatus(): Promise<string>;
@@ -66,6 +68,11 @@ export async function handleApi(req: Request, deps: ApiDeps): Promise<Response> 
   if (method === "GET" && path === "/clientes") {
     return json(await deps.listClientes());
   }
+  // POST /clientes (cadastro manual pelo painel)
+  if (method === "POST" && path === "/clientes") {
+    const data = await req.json();
+    return json(await deps.createCliente(data), 201);
+  }
   // GET /conversas
   if (method === "GET" && path === "/conversas") {
     const clienteId = url.searchParams.get("clienteId") ?? undefined;
@@ -74,6 +81,11 @@ export async function handleApi(req: Request, deps: ApiDeps): Promise<Response> 
   // GET /visitas
   if (method === "GET" && path === "/visitas") {
     return json(await deps.listVisitas());
+  }
+  // POST /visitas (agendamento manual pelo painel)
+  if (method === "POST" && path === "/visitas") {
+    const data = await req.json();
+    return json(await deps.createVisita(data), 201);
   }
   // PUT /visitas/:id/status
   const visitaMatch = path.match(/^\/visitas\/([^/]+)\/status$/);

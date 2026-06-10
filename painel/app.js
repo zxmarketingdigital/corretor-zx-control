@@ -160,6 +160,132 @@ document.getElementById("form-config")?.addEventListener("submit", async (e) => 
   } catch (err) { toast(`Erro: ${err.message}`); }
 });
 
+// ── Modais de cadastro ────────────────────────────────────────────────────
+function openModal(id) {
+  document.getElementById(id)?.classList.add("open");
+}
+function closeModal(id) {
+  document.getElementById(id)?.classList.remove("open");
+}
+
+// Fechar no X / botão Cancelar / clique fora / Esc
+document.querySelectorAll(".modal-backdrop").forEach((bd) => {
+  bd.addEventListener("click", (e) => { if (e.target === bd) bd.classList.remove("open"); });
+  bd.querySelectorAll("[data-close]").forEach((btn) =>
+    btn.addEventListener("click", () => bd.classList.remove("open")),
+  );
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    document.querySelectorAll(".modal-backdrop.open").forEach((bd) => bd.classList.remove("open"));
+  }
+});
+
+// Helpers de payload (contrato: numéricos como Number, checkbox como boolean)
+function fdText(fd, key) {
+  const v = (fd.get(key) ?? "").toString().trim();
+  return v || undefined;
+}
+function fdNumber(fd, key) {
+  const v = (fd.get(key) ?? "").toString().trim();
+  return v === "" ? undefined : Number(v);
+}
+function stripUndefined(obj) {
+  const out = {};
+  Object.keys(obj).forEach((k) => { if (obj[k] !== undefined) out[k] = obj[k]; });
+  return out;
+}
+
+// Abrir modais
+document.getElementById("btn-novo-imovel")?.addEventListener("click", () => openModal("modal-imovel"));
+document.getElementById("btn-novo-cliente")?.addEventListener("click", () => openModal("modal-cliente"));
+document.getElementById("btn-nova-visita")?.addEventListener("click", async () => {
+  const form = document.getElementById("form-nova-visita");
+  const selCliente = form.querySelector("[name=cliente_id]");
+  const selImovel = form.querySelector("[name=imovel_id]");
+  selCliente.innerHTML = `<option value="">Carregando…</option>`;
+  selImovel.innerHTML = `<option value="">—</option>`;
+  openModal("modal-visita");
+  try {
+    const [clientes, imoveis] = await Promise.all([api("/clientes"), api("/imoveis")]);
+    selCliente.innerHTML = `<option value="">Selecione o cliente…</option>` +
+      clientes.map((c) => `<option value="${c.id}">${c.nome ?? "—"} · ${c.telefone}</option>`).join("");
+    selImovel.innerHTML = `<option value="">— (nenhum)</option>` +
+      imoveis.filter((i) => i.status === "ativo")
+        .map((i) => `<option value="${i.id}">${i.titulo}</option>`).join("");
+  } catch (e) {
+    toast(`Erro ao carregar listas: ${e.message}`);
+  }
+});
+
+// Submit: novo imóvel → POST /imoveis
+document.getElementById("form-novo-imovel")?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const body = stripUndefined({
+    titulo: fdText(fd, "titulo"),
+    tipo: fdText(fd, "tipo"),
+    transacao: fdText(fd, "transacao"),
+    preco: fdNumber(fd, "preco"),
+    cidade: fdText(fd, "cidade"),
+    bairro: fdText(fd, "bairro"),
+    regiao: fdText(fd, "regiao"),
+    quartos: fdNumber(fd, "quartos"),
+    area_m2: fdNumber(fd, "area_m2"),
+    descricao: fdText(fd, "descricao"),
+  });
+  try {
+    await api("/imoveis", { method: "POST", body });
+    toast("Imóvel cadastrado");
+    closeModal("modal-imovel");
+    e.target.reset();
+    loadCatalogo();
+  } catch (err) { toast(`Erro: ${err.message}`); }
+});
+
+// Submit: novo cliente → POST /clientes
+document.getElementById("form-novo-cliente")?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const body = stripUndefined({
+    nome: fdText(fd, "nome"),
+    telefone: fdText(fd, "telefone"),
+    regiao: fdText(fd, "regiao"),
+    tipo: fdText(fd, "tipo"),
+    finalidade: fdText(fd, "finalidade"),
+    orcamento_min: fdNumber(fd, "orcamento_min"),
+    orcamento_max: fdNumber(fd, "orcamento_max"),
+    elegivel_proativo: e.target.querySelector("[name=elegivel_proativo]").checked,
+  });
+  try {
+    await api("/clientes", { method: "POST", body });
+    toast("Cliente cadastrado");
+    closeModal("modal-cliente");
+    e.target.reset();
+    loadCarteira();
+  } catch (err) { toast(`Erro: ${err.message}`); }
+});
+
+// Submit: agendar visita → POST /visitas
+document.getElementById("form-nova-visita")?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const agendadaLocal = (fd.get("agendada_para") ?? "").toString();
+  const body = stripUndefined({
+    cliente_id: fdText(fd, "cliente_id"),
+    imovel_id: fdText(fd, "imovel_id"),
+    local: fdText(fd, "local"),
+    agendada_para: agendadaLocal ? new Date(agendadaLocal).toISOString() : undefined,
+  });
+  try {
+    await api("/visitas", { method: "POST", body });
+    toast("Visita agendada");
+    closeModal("modal-visita");
+    e.target.reset();
+    loadVisitas();
+  } catch (err) { toast(`Erro: ${err.message}`); }
+});
+
 // ── Tab loader ────────────────────────────────────────────────────────────
 async function loadTab(tab) {
   try {

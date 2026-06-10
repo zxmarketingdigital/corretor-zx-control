@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Corretor ZX Control</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -27,7 +30,8 @@
       <div class="card">
         <div class="card-header">
           <h2>Catálogo de Imóveis</h2>
-          <span style="margin-left:auto;color:var(--muted);font-size:12px">⚠ = sem update há >7 dias</span>
+          <span class="hint ml-auto">⚠ = sem update há &gt;7 dias</span>
+          <button type="button" class="btn btn-primary btn-sm" id="btn-novo-imovel">+ Novo imóvel</button>
         </div>
         <table>
           <thead><tr><th>Título</th><th>Tipo</th><th>Transação</th><th>Preço</th><th>Região</th><th>Status</th></tr></thead>
@@ -39,7 +43,10 @@
     <!-- Carteira -->
     <div id="tab-carteira" class="tab">
       <div class="card">
-        <div class="card-header"><h2>Carteira de Clientes</h2></div>
+        <div class="card-header">
+          <h2>Carteira de Clientes</h2>
+          <button type="button" class="btn btn-primary btn-sm ml-auto" id="btn-novo-cliente">+ Novo cliente</button>
+        </div>
         <table>
           <thead><tr><th>Nome</th><th>Telefone</th><th>Região</th><th>Tipo</th><th>Estado</th><th>Proativo</th></tr></thead>
           <tbody id="table-carteira"></tbody>
@@ -61,7 +68,10 @@
     <!-- Visitas -->
     <div id="tab-visitas" class="tab">
       <div class="card">
-        <div class="card-header"><h2>Visitas Agendadas</h2></div>
+        <div class="card-header">
+          <h2>Visitas Agendadas</h2>
+          <button type="button" class="btn btn-primary btn-sm ml-auto" id="btn-nova-visita">+ Agendar visita</button>
+        </div>
         <table>
           <thead><tr><th>Cliente</th><th>Data/Hora</th><th>Local</th><th>Ação</th></tr></thead>
           <tbody id="table-visitas"></tbody>
@@ -115,6 +125,190 @@
       </div>
     </div>
   </main>
+</div>
+
+<!-- Modal: Novo imóvel -->
+<div class="modal-backdrop" id="modal-imovel">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Novo imóvel</h3>
+      <button type="button" class="modal-close" data-close aria-label="Fechar">&times;</button>
+    </div>
+    <form id="form-novo-imovel">
+      <div class="form-group">
+        <label>Título <span class="req">*</span></label>
+        <input type="text" name="titulo" required placeholder="Apto 2 quartos no Centro">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Tipo <span class="req">*</span></label>
+          <select name="tipo" required>
+            <option value="apartamento">Apartamento</option>
+            <option value="casa">Casa</option>
+            <option value="terreno">Terreno</option>
+            <option value="sala">Sala</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Transação <span class="req">*</span></label>
+          <select name="transacao" required>
+            <option value="venda">Venda</option>
+            <option value="locacao">Locação</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Preço (R$) <span class="req">*</span></label>
+        <input type="number" name="preco" required min="0" step="0.01" placeholder="450000">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Cidade</label>
+          <input type="text" name="cidade" placeholder="São Paulo">
+        </div>
+        <div class="form-group">
+          <label>Bairro</label>
+          <input type="text" name="bairro" placeholder="Centro">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Região</label>
+          <select name="regiao">
+            <option value="">—</option>
+            <option value="centro">Centro</option>
+            <option value="norte">Norte</option>
+            <option value="sul">Sul</option>
+            <option value="leste">Leste</option>
+            <option value="oeste">Oeste</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Quartos</label>
+          <input type="number" name="quartos" min="0" step="1" placeholder="2">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Área (m²)</label>
+        <input type="number" name="area_m2" min="0" step="0.01" placeholder="68">
+      </div>
+      <div class="form-group">
+        <label>Descrição</label>
+        <textarea name="descricao" placeholder="Detalhes do imóvel…"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn" data-close>Cancelar</button>
+        <button type="submit" class="btn btn-primary">Cadastrar imóvel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Novo cliente -->
+<div class="modal-backdrop" id="modal-cliente">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Novo cliente</h3>
+      <button type="button" class="modal-close" data-close aria-label="Fechar">&times;</button>
+    </div>
+    <form id="form-novo-cliente">
+      <div class="form-group">
+        <label>Nome <span class="req">*</span></label>
+        <input type="text" name="nome" required placeholder="Maria Silva">
+      </div>
+      <div class="form-group">
+        <label>Telefone <span class="req">*</span></label>
+        <input type="text" name="telefone" required placeholder="5511999999999">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Região</label>
+          <select name="regiao">
+            <option value="">—</option>
+            <option value="centro">Centro</option>
+            <option value="norte">Norte</option>
+            <option value="sul">Sul</option>
+            <option value="leste">Leste</option>
+            <option value="oeste">Oeste</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Tipo de imóvel</label>
+          <select name="tipo">
+            <option value="">—</option>
+            <option value="apartamento">Apartamento</option>
+            <option value="casa">Casa</option>
+            <option value="terreno">Terreno</option>
+            <option value="sala">Sala</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Finalidade</label>
+        <select name="finalidade">
+          <option value="">—</option>
+          <option value="morar">Morar</option>
+          <option value="investir">Investir</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Orçamento mín. (R$)</label>
+          <input type="number" name="orcamento_min" min="0" step="0.01" placeholder="300000">
+        </div>
+        <div class="form-group">
+          <label>Orçamento máx. (R$)</label>
+          <input type="number" name="orcamento_max" min="0" step="0.01" placeholder="500000">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="checkbox-row">
+          <input type="checkbox" name="elegivel_proativo">
+          <span>Pode receber disparos proativos (consentimento LGPD)</span>
+        </label>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn" data-close>Cancelar</button>
+        <button type="submit" class="btn btn-primary">Cadastrar cliente</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Agendar visita -->
+<div class="modal-backdrop" id="modal-visita">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Agendar visita</h3>
+      <button type="button" class="modal-close" data-close aria-label="Fechar">&times;</button>
+    </div>
+    <form id="form-nova-visita">
+      <div class="form-group">
+        <label>Cliente <span class="req">*</span></label>
+        <select name="cliente_id" required>
+          <option value="">Carregando…</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Imóvel</label>
+        <select name="imovel_id">
+          <option value="">—</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Data e hora <span class="req">*</span></label>
+        <input type="datetime-local" name="agendada_para" required>
+      </div>
+      <div class="form-group">
+        <label>Local</label>
+        <input type="text" name="local" placeholder="Rua Exemplo, 123 — portaria">
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn" data-close>Cancelar</button>
+        <button type="submit" class="btn btn-primary">Agendar</button>
+      </div>
+    </form>
+  </div>
 </div>
 
 <div id="toast"></div>

@@ -142,6 +142,20 @@ export function createDb(env: DbEnv) {
       const { data } = await sb.from("clientes").select("*").order("criado_em", { ascending: false }).limit(500);
       return data ?? [];
     },
+    async createCliente(input: unknown): Promise<unknown> {
+      // Cadastro manual pelo painel: origem 'manual' e, se o corretor marcou o
+      // cliente como elegível a proativo, registra o consentimento (LGPD §12).
+      const d = input as Record<string, unknown>;
+      const row = {
+        ...d,
+        origem: (d.origem as string) ?? "manual",
+        consentimento: !!d.elegivel_proativo,
+        consentimento_em: d.elegivel_proativo ? new Date().toISOString() : null,
+      };
+      const { data, error } = await sb.from("clientes").insert(row).select("*").single();
+      if (error) throw new Error(`Falha ao criar cliente: ${error.message}`);
+      return data;
+    },
     async listConversas(clienteId?: string): Promise<unknown[]> {
       let q = sb.from("conversas").select("*").order("ultima_interacao", { ascending: false }).limit(500);
       if (clienteId) q = q.eq("cliente_id", clienteId);
@@ -149,8 +163,17 @@ export function createDb(env: DbEnv) {
       return data ?? [];
     },
     async listVisitas(): Promise<unknown[]> {
-      const { data } = await sb.from("visitas").select("*").order("agendada_para", { ascending: true }).limit(500);
-      return data ?? [];
+      const { data } = await sb.from("visitas").select("*, clientes(nome)").order("agendada_para", { ascending: true }).limit(500);
+      return (data ?? []).map((v) => {
+        const row = v as Record<string, unknown> & { clientes?: { nome?: string } | null };
+        return { ...row, cliente_nome: row.clientes?.nome ?? null };
+      });
+    },
+    async createVisita(input: unknown): Promise<unknown> {
+      const { data, error } = await sb.from("visitas").insert(input as Record<string, unknown>).select("*, clientes(nome)").single();
+      if (error) throw new Error(`Falha ao criar visita: ${error.message}`);
+      const row = data as Record<string, unknown> & { clientes?: { nome?: string } | null };
+      return { ...row, cliente_nome: row.clientes?.nome ?? null };
     },
     async updateVisitaStatus(id: string, status: string): Promise<void> {
       const { error } = await sb.from("visitas").update({ status }).eq("id", id);

@@ -20,8 +20,10 @@ function makeDeps(overrides: Partial<ApiDeps> = {}): ApiDeps {
     listImoveis: async () => [],
     createImovel: async () => ({ id: "i1" }),
     listClientes: async () => [],
+    createCliente: async () => ({ id: "c1" }),
     listConversas: async () => [],
     listVisitas: async () => [],
+    createVisita: async () => ({ id: "v1" }),
     updateVisitaStatus: async () => {},
     listDisparos: async () => [],
     adapterStatus: async () => "connected",
@@ -68,5 +70,31 @@ describe("API — rotas", () => {
   it("GET /api/rota-inexistente retorna 404", async () => {
     const res = await handleApi(makeReq("GET", "/api/nao-existe"), makeDeps());
     expect(res.status).toBe(404);
+  });
+
+  it("POST /api/clientes cria cliente e retorna 201", async () => {
+    let received: unknown;
+    const deps = makeDeps({
+      createCliente: async (data) => { received = data; return { id: "c1" }; },
+    });
+    const body = { nome: "Teste", telefone: "5511999999999", elegivel_proativo: true };
+    const res = await handleApi(makeReq("POST", "/api/clientes", "test-token", body), deps);
+    expect(res.status).toBe(201);
+    expect(received).toEqual(body);
+    const json = await res.json() as { id: string };
+    expect(json.id).toBe("c1");
+  });
+
+  it("POST /api/visitas cria visita e retorna 201", async () => {
+    let received: unknown;
+    const deps = makeDeps({
+      createVisita: async (data) => { received = data; return { id: "v1", status: "agendada" }; },
+    });
+    const body = { cliente_id: "c1", imovel_id: "i1", local: "Plantão Jardins", agendada_para: "2026-06-12T14:00:00Z" };
+    const res = await handleApi(makeReq("POST", "/api/visitas", "test-token", body), deps);
+    expect(res.status).toBe(201);
+    expect(received).toEqual(body);
+    const json = await res.json() as { status: string };
+    expect(json.status).toBe("agendada");
   });
 });
