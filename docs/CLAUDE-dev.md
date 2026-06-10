@@ -33,14 +33,40 @@ Mas dentro de regras firmes:
 - **WhatsApp:** **Evolution API é o default** deste pacote (spec §3.1), mas o adapter é **plugável**
   (interface única; `zapi`/`meta`/`uazapi` implementáveis sem mexer no núcleo).
 - **Todo disparo proativo** (Agentes 2/3/4 + cron anti-no-show) passa pelo scheduler com, **como
-  invariantes testadas**: dedup + idempotência + **janela com limite inferior E superior** +
-  **rate-cap de envio por número** (anti-ban; dedup não basta) + **opt-out "SAIR"**. A Clínica teve 3
-  bugs de spam/ban exatamente aqui — não repita.
+  invariantes testadas**: dedup (chave distingue toques diferentes do mesmo agente) + idempotência +
+  **janela com limite inferior E superior em America/Sao_Paulo** + **rate-cap GLOBAL da linha
+  emissora** + **delay/jitter entre envios** + **opt-out "SAIR"**. A Clínica teve 3 bugs de spam/ban
+  exatamente aqui — não repita.
+  > ⚠️ **"Rate-cap por número" significa o número QUE ENVIA (a instância do corretor), nunca o
+  > destinatário.** Quem toma ban é a linha emissora. Contar envios por destinatário faz o cap nunca
+  > disparar (cada lead é um número distinto) — foi exatamente o bug CRITICAL do PR #2. O teste do
+  > cap deve usar **N destinatários distintos** e provar que o N+1 além do cap é bloqueado.
 - **Agente 1** tem guardrails CDC/CRECI: não afirmar disponibilidade sem checar o Catálogo, não
   prometer condição/aprovação de financiamento, sempre encaminhar negociação ao corretor humano.
 - **LGPD:** registrar origem/consentimento do contato; opt-out automático em todo proativo.
 - **Núcleo congelado e versionado:** distribuição por **tag** `vX.Y.Z` (ver `RELEASING.md`), nunca a `main`.
 - **Sem segredo no repo.** Credenciais vivem em `.env`/wrangler secret (gitignored). Sem ID interno do ZX LAB.
+- **Um valor, um lugar.** Model id do Gemini, janelas de horário, caps de envio e qualquer valor de
+  configuração ficam em **uma constante exportada única** que todos os consumidores importam — incluindo
+  `setup/` e `painel/`. Literal repetido em 2+ arquivos = fix incompleto garantido (o fix do
+  `gemini-2.0`→`2.5` do PR #2 esqueceu `setup/configure.mjs` exatamente por isso).
+- **Auth em TODA rota nova, falha-fechado.** Rota nova no Worker exige Bearer/secret e o check tem que
+  estar no caminho DELA (não só existir em outra rota — o PR #2 roteou os imports ANTES do bloco
+  autenticado). Token ausente/vazio → 401 sempre.
+
+## Definition of Done (sem isso o PR volta)
+
+1. **Teste de invariante de verdade**: para cada invariante tocado (auth, anti-ban, dedup, match),
+   existe um teste que **falha se o seu código for revertido**. Critério objetivo: `git stash` no seu
+   código, rode a suíte — o teste novo TEM que quebrar. Se continua verde, é teatro (mock testando mock).
+2. **Caminho de integração coberto**: se um fluxo grava (import/webhook) e outro lê (match/cron), há um
+   teste passando dados reais do parser de ponta a ponta — coluna gravada = coluna lida. (O match por
+   região do PR #2 retornava sempre vazio porque import gravava `bairro` e o match lia `regiao`; a suíte
+   unitária verde não viu.)
+3. **Fix de valor/ID com grep**: trocou um valor? `grep -rn` do valor antigo no repo inteiro, zero
+   ocorrências.
+4. **Auto-review adversarial rodado** e resultado colado no PR (prompt no `CONTRIBUINDO.md`).
+5. `pnpm ci` verde local + PR ≤ ~1.000 linhas de diff.
 
 ## Ordem de construção sugerida (derive seu plano do spec)
 
