@@ -116,7 +116,12 @@ export function createDb(env: DbEnv) {
     async matchImoveis(perfil: PerfilBusca): Promise<Imovel[]> {
       let q = sb.from("imoveis").select(IMOVEL_COLS).eq("status", "ativo").eq("transacao", perfil.transacao);
       if (perfil.tipo) q = q.eq("tipo", perfil.tipo);
-      if (perfil.regiao) q = q.eq("regiao", perfil.regiao);
+      // região tolerante: case-insensitive e parcial (lead diz "centro" → casa "Centro").
+      // O import sempre popula `regiao` (fallback bairro/cidade), então imóvel nunca fica órfão.
+      if (perfil.regiao) {
+        const termo = perfil.regiao.replace(/[%,()*]/g, "").trim();
+        if (termo) q = q.ilike("regiao", `%${termo}%`);
+      }
       if (perfil.orcamento_min != null) q = q.gte("preco", perfil.orcamento_min);
       if (perfil.orcamento_max != null) q = q.lte("preco", perfil.orcamento_max);
       const { data } = await q.limit(50);
@@ -387,20 +392,20 @@ export function createSchedulerDb(env: DbEnv): DbLike {
       const { data } = await sb.from("disparos").select("id").eq("chave_idempotencia", chave).maybeSingle();
       return !!data;
     },
-    async contarEnviosHora(numero: string, desde: Date): Promise<number> {
+    // Rate-cap GLOBAL: conta TODOS os envios da instância na janela (não por
+    // destinatário). É a linha emissora que toma ban, não o número do lead.
+    async contarEnviosHora(desde: Date): Promise<number> {
       const { count } = await sb
         .from("disparos")
         .select("id", { count: "exact", head: true })
-        .eq("numero", numero)
         .eq("status", "enviado")
         .gte("criado_em", desde.toISOString());
       return count ?? 0;
     },
-    async contarEnviosDia(numero: string, desde: Date): Promise<number> {
+    async contarEnviosDia(desde: Date): Promise<number> {
       const { count } = await sb
         .from("disparos")
         .select("id", { count: "exact", head: true })
-        .eq("numero", numero)
         .eq("status", "enviado")
         .gte("criado_em", desde.toISOString());
       return count ?? 0;

@@ -63,8 +63,12 @@ function parseImovelBlock(block: string, idx: number): { item: ImovelInput; erro
   const quartos = quartosRaw ? parseInt(quartosRaw) : undefined;
   const descricao = getTag(block, "Descricao") || getTag(block, "Observacoes") || undefined;
 
+  // `regiao` é a coluna que o match e os crons consultam. Feeds XML trazem
+  // Bairro/Cidade, nunca "região" → derivamos para o imóvel não ficar órfão no match.
+  const regiao = bairro ?? cidade;
+
   return {
-    item: { ref, titulo, tipo, transacao, preco, bairro, cidade, area_m2, quartos, descricao },
+    item: { ref, titulo, tipo, transacao, preco, bairro, cidade, regiao, area_m2, quartos, descricao },
     erro: null,
   };
 }

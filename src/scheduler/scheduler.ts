@@ -2,7 +2,7 @@
 // Toda mensagem proativa (Agentes 2/3/4/5 + anti-no-show) passa por aqui.
 // Invariantes anti-ban/anti-spam testadas (spec §3.1/§10):
 //   (a) dedup em janela, (b) janela inf+sup, (c) idempotência radar,
-//   (d) rate-cap 20/h · 80/dia por número, (e) opt-out "SAIR".
+//   (d) rate-cap 20/h · 80/dia GLOBAL da instância emissora, (e) opt-out "SAIR".
 import { gerarChave } from "./dedup";
 import type { AdapterLike, AgenteName, DbLike, DispatchOptions } from "./types";
 
@@ -34,17 +34,17 @@ export async function dispatch(
   // (b) janela inferior+superior
   if (hora < opts.window.start || hora >= opts.window.end) return "bloqueado";
 
-  // (d) rate-cap por número
+  // (d) rate-cap GLOBAL da instância (protege a linha emissora, não o destinatário)
   const h1ago = new Date(now.getTime() - 3_600_000);
   const d1ago = new Date(now.getTime() - 86_400_000);
   const [enviosHora, enviosDia] = await Promise.all([
-    db.contarEnviosHora(opts.numero, h1ago),
-    db.contarEnviosDia(opts.numero, d1ago),
+    db.contarEnviosHora(h1ago),
+    db.contarEnviosDia(d1ago),
   ]);
   if (enviosHora >= RATE_CAP_HORA || enviosDia >= RATE_CAP_DIA) return "bloqueado";
 
   // (a) dedup + (c) idempotência radar
-  const chave = gerarChave(opts.clienteId, opts.agente as AgenteName, now, opts.imovelId);
+  const chave = gerarChave(opts.clienteId, opts.agente as AgenteName, now, opts.imovelId, opts.toque);
   if (await db.existeDisparo(opts.clienteId, opts.agente as AgenteName, chave)) return "bloqueado";
 
   // Passa todos os checks → envia
@@ -57,5 +57,9 @@ export async function dispatch(
     chave,
     status: "enviado",
   });
+  // anti-ban: espaça o próximo envio (jitter injetado pelo Worker; no-op em testes)
+  if (opts.delayMs && opts.delayMs > 0) {
+    await (opts.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms))))(opts.delayMs);
+  }
   return "enviado";
 }

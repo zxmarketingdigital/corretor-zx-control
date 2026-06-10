@@ -92,7 +92,8 @@ export function parseCsvImoveis(text: string): { imoveis: ImovelInput[]; erros: 
       ref: norm["ref"] || undefined,
       cidade: norm["cidade"] || undefined,
       bairro: norm["bairro"] || undefined,
-      regiao: norm["regiao"] || undefined,
+      // fallback: planilhas trazem bairro/cidade mas raramente "região" — o match usa `regiao`.
+      regiao: norm["regiao"] || norm["bairro"] || norm["cidade"] || undefined,
       quartos: norm["quartos"] ? parseInt(norm["quartos"]) : undefined,
       area_m2: norm["area_m2"] ? parseFloat(norm["area_m2"]) : undefined,
       descricao: norm["descricao"] || undefined,

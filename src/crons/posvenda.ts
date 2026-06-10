@@ -29,6 +29,7 @@ export async function runPosvenda(deps: PosvendaDeps): Promise<void> {
       clienteId: cliente.clienteId,
       numero: cliente.numero,
       agente: "posvenda",
+      toque: cliente.toque,
       mensagem,
       window: { start: 8, end: 18 },
       now,

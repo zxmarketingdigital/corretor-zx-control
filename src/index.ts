@@ -1,4 +1,4 @@
-import { handleApi } from "./api/router";
+import { handleApi, auth } from "./api/router";
 import { handleImportImoveis, handleImportClientes } from "./api/import";
 import { handleWebhook } from "./agents/agent1";
 import { runAntiNoshow } from "./crons/anti-noshow";
@@ -63,7 +63,15 @@ export default {
       return new Response("ok", { status: 200 });
     }
 
-    // Panel API — import endpoints
+    // Panel API — import endpoints (gravam catálogo + PII de leads → exigem Bearer)
+    if (pathname.startsWith("/api/import/")) {
+      if (!auth(request, env.PANEL_TOKEN ?? "")) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+    }
     if (pathname === "/api/import/imoveis" && request.method === "POST") {
       const db = createDb(env);
       return handleImportImoveis(request, {
@@ -105,7 +113,11 @@ export default {
     const adapter = createAdapter(env);
     const db = createSchedulerDb(env);
     const cat = createDb(env);
-    const dispatchFn = (opts: Parameters<typeof dispatch>[2]) => dispatch(db, adapter, opts);
+    // Anti-ban: espaça cada envio com jitter aleatório (3–10s) para não emitir
+    // rajada pela mesma linha Evolution. Combinado com o rate-cap global (20/h),
+    // limita o burst total por execução.
+    const dispatchFn = (opts: Parameters<typeof dispatch>[2]) =>
+      dispatch(db, adapter, { ...opts, delayMs: 3000 + Math.floor(Math.random() * 7000) });
     const gemini = (p: string) => geminiFlash(p, env);
 
     // Sync catalog feeds before agents so radar sees fresh listings (real config + upsert).

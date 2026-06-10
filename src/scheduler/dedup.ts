@@ -15,13 +15,15 @@ export function gerarChave(
   agente: AgenteName,
   now: Date,
   imovelId?: string,
+  toque?: number,
 ): string {
   if (agente === "radar" && imovelId) {
     return `${clienteId}:radar:${imovelId}`;
   }
   if (agente === "posvenda") {
     const month = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
-    return `${clienteId}:posvenda:${month}`;
+    // inclui o toque: D+3 (1) e D+30 (2) não podem colidir no mesmo mês civil.
+    return `${clienteId}:posvenda:${toque ?? 1}:${month}`;
   }
   return `${clienteId}:${agente}:${isoWeek(now)}`;
 }

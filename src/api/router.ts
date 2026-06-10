@@ -27,7 +27,10 @@ function json(data: unknown, status = 200): Response {
   });
 }
 
-function auth(req: Request, token: string): boolean {
+// Fail-closed: sem token configurado (wrangler secret não rodado) nega tudo,
+// em vez de aceitar "Bearer " vazio e expor a API/PII do painel.
+export function auth(req: Request, token: string): boolean {
+  if (!token) return false;
   const header = req.headers.get("Authorization") ?? "";
   return header === `Bearer ${token}`;
 }
