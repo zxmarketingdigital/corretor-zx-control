@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Wizard de configuração do Corretor ZX Control.
-// Uso: node setup/wizard.mjs
+// Uso: node setup/configure.mjs
 // Requerimentos: Node 22+, acesso ao Supabase e Evolution já provisionados.
 
 import { createInterface } from "readline";
@@ -116,7 +116,7 @@ console.log(`
      pnpm run deploy
 
   5. Configure o painel (Cloudflare Pages):
-     - cp painel/config.js.example painel/config.js
+     - cp painel/config.example.js painel/config.js
      - Edite com WORKER_URL e BEARER_TOKEN
      - Suba o painel para Cloudflare Pages
 
