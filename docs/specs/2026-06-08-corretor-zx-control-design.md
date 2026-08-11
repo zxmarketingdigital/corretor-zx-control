@@ -202,8 +202,7 @@ radar sobre o Catálogo · matching SQL · RLS + anti-ban + LGPD opt-out como n�
 - **Conector Apify** e qualquer **scraping próprio de portais**.
 - **Ranking semântico** (embeddings) de imóvel — só se o match SQL não bastar, como camada opcional.
 - Integração bidirecional de assinatura/contrato/CRM externo.
-- **Distribuição via área de membros** depende da skill `/criar-setup-zxcontrol-v2` (pendente na
-  linha) — o v1 entrega **núcleo + conteúdo da masterclass**; o trilho de distribuição entra quando a v2 existir.
+- **Distribuição via área de membros** depende de um trilho de distribuição ainda não construído — o v1 entrega **núcleo + conteúdo da masterclass**; a distribuição entra numa versão futura.
 
 ## 12. Riscos conhecidos (pós-review)
 
