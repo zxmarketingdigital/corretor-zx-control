@@ -1,6 +1,8 @@
-// gemini-2.0-flash foi aposentado (free tier limit:0 → 429). A linha ZX Control usa 2.5-flash.
-const GEMINI_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
+// gemini-2.0-flash e gemini-2.5-flash foram aposentados e retornam 404 para novas chaves.
+// A linha ZX Control usa o alias gemini-flash-lite-latest.
+export const GEMINI_MODEL_DEFAULT = "gemini-flash-lite-latest";
+const GEMINI_URL = (model: string) =>
+  `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
 export class GeminiError extends Error {
   constructor(
@@ -19,7 +21,7 @@ type FetchLike = (
 
 export async function geminiFlash(
   prompt: string,
-  env: { GEMINI_API_KEY: string },
+  env: { GEMINI_API_KEY: string; GEMINI_MODEL?: string },
   opts: {
     timeoutMs?: number;
     retries?: number;
@@ -31,7 +33,8 @@ export async function geminiFlash(
   const fetchFn: FetchLike = opts._fetch ?? ((url, init) => fetch(url, init));
   const delayFn = opts._delay ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
 
-  const url = `${GEMINI_URL}?key=${env.GEMINI_API_KEY}`;
+  const model = env.GEMINI_MODEL?.trim() || GEMINI_MODEL_DEFAULT;
+  const url = `${GEMINI_URL(model)}?key=${env.GEMINI_API_KEY}`;
   const body = JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] });
   const headers = { "Content-Type": "application/json" };
 
@@ -52,9 +55,15 @@ export async function geminiFlash(
 
       if (res.ok) {
         const data = (await res.json()) as {
-          candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+          candidates?: Array<{ content?: { parts?: Array<{ text?: string; thought?: boolean }> } }>;
         };
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        // Junta todos os parts de resposta (o [0] pode vir só com raciocínio, sem text) e
+        // descarta os marcados com thought:true — raciocínio interno não vai pro usuário.
+        const text = data.candidates?.[0]?.content?.parts
+          ?.filter((part) => part.thought !== true)
+          .map((part) => part.text)
+          .filter((part): part is string => Boolean(part))
+          .join("");
         if (!text) throw new GeminiError("Resposta Gemini sem texto");
         return text;
       }

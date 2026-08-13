@@ -145,7 +145,7 @@ async function checkWhatsApp(env) {
 
 /** Check 4 — Gemini: chamada trivial com GEMINI_API_KEY. */
 async function checkGemini(apiKey, env) {
-  const model = env["GEMINI_MODEL"] || "gemini-2.5-flash";
+  const model = env["GEMINI_MODEL"] || "gemini-flash-lite-latest";
   const url   = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   const body  = JSON.stringify({
     contents: [{ parts: [{ text: "Responda apenas a palavra: ok" }] }],
@@ -161,6 +161,13 @@ async function checkGemini(apiKey, env) {
     if (res.status === 400 || res.status === 401 || res.status === 403) {
       const txt = await res.text().catch(() => "");
       return { passou: false, msg: `Gemini auth error ${res.status}: ${txt.slice(0, 200)}` };
+    }
+    if (res.status === 404) {
+      const txt = await res.text().catch(() => "");
+      return {
+        passou: false,
+        msg: `Gemini retornou 404: o modelo pode ter sido aposentado. Sobrescreva com GEMINI_MODEL no .env. ${txt.slice(0, 200)}`,
+      };
     }
     if (!res.ok) {
       const txt = await res.text().catch(() => "");
