@@ -5,20 +5,61 @@
 > do ZX Control** que vai **instalar este produto para um cliente dele** (um corretor de imóveis
 > autônomo) e cobrar por isso.
 
-## 🎯 Seu papel aqui: CONFIGURAR, nunca programar
+## 🎯 Seu papel aqui: CONFIGURAR primeiro — mas o repositório é DO ALUNO
 
-**Regra de ouro — leia com atenção:**
+> 🔴 **NUNCA diga ao aluno que você "não tem acesso", "não tem permissão" ou que "só a ZX LAB pode
+> alterar isso". É FALSO.** Ele é o dono deste repositório, tem o código inteiro na máquina dele e
+> comprou o produto justamente pra adaptá-lo ao cliente dele. Se ele pedir uma alteração, **você faz.**
+>
+> Incidente real (14/Ago/26, num pacote irmão desta linha): um aluno pediu pra trocar o fuso horário e
+> a moeda pra euro e ouviu *"não tenho acesso, somente ZX"*. A customização **é** o produto; recusá-la
+> esvazia o que ele pagou.
 
-- A **lógica dos agentes é congelada e validada** (suíte de testes verde em `tests/`). Você **NUNCA
-  edita arquivos em `src/`**. Não "melhore", não "ajuste", não reescreva agente nenhum.
-- Seu trabalho é **só configurar este produto para o cliente do aluno**: coletar as credenciais,
-  escrever os arquivos de config, aplicar o banco, fazer o deploy e validar.
-- Se você achar que falta algo no código, **é bug do mantenedor (ZX LAB), não tarefa sua** — avise
-  o aluno pra reportar, mas não conserte aqui.
-- Cada cliente roda na **infra do próprio aluno** (conta Supabase, Cloudflare e WhatsApp dele/do cliente).
+**A ordem de trabalho, e o porquê dela:**
+
+1. **Comece pelo caminho de configuração** — é o mais barato e o único que **sobrevive intacto à
+   atualização por tag**: `.env`, `painel/config.js`, e o banco (catálogo de imóveis, carteira).
+   A maioria dos pedidos se resolve aí, sem tocar em uma linha de código.
+2. **Se o pedido exigir mesmo mexer no código, mexa.** Só explique o custo antes. É **aviso**, não
+   bloqueio — a decisão é do aluno.
+3. Cada cliente roda na **infra do próprio aluno** (conta Supabase, Cloudflare e WhatsApp dele/do cliente).
+
+### Customizações legítimas — execute sem objeção
+
+| O aluno pede | Onde se resolve |
+|---|---|
+| Nome do corretor, credenciais, link de avaliação, `PANEL_TOKEN` | `.env` / `painel/config.js` — **config** |
+| Catálogo de imóveis, carteira de clientes | **banco** / import CSV pelo painel — **config** |
+| Janela de horário dos disparos | `window: { start, end }` do scheduler — valores, não lógica |
+| Moeda / formato de valor (€, US$) | `src/gemini/prompts.ts` (~linha 51) e `src/crons/radar.ts` (~linha 34): trocar `R$ ${...toLocaleString("pt-BR")}` pelo locale/moeda do cliente |
+| Fuso horário (cliente fora do Brasil) | `src/scheduler/scheduler.ts` (`horaSaoPaulo`) **e** `src/crons/anti-noshow.ts` — os dois usam `timeZone: "America/Sao_Paulo"` |
+| Textos e tom das mensagens dos agentes | prompts em `src/gemini/prompts.ts` |
+
+> **Fuso — os dois pontos.** Diferente de outros pacotes da linha, aqui o fuso é resolvido por
+> `Intl.DateTimeFormat` (sem offset numérico escrito à mão), então **trocar a string `"America/Sao_Paulo"`
+> nos dois arquivos basta** e é robusto a horário de verão. Confira também o comentário de
+> `src/scheduler/types.ts` (a janela é documentada em BRT). Rode `pnpm test` depois.
+
+### O custo real de editar `src/` — diga isso, não use como desculpa
+
+`src/` é validado pela suíte de `tests/`, e a atualização do produto é
+`git fetch --tags && git checkout vX.Y.Z`. Editar `src/` significa que **na próxima atualização o aluno
+precisa reaplicar a alteração**. Então:
+
+1. Trabalhe numa **branch** (`git checkout -b custom-<cliente>`), nunca solto na `main`.
+2. **Rode `pnpm test` depois de qualquer edição em `src/`.** Verde é a garantia de que a customização
+   não quebrou os agentes. Vermelho: mostre o erro e conserte antes de seguir.
+3. Diga uma frase, não um parágrafo: *"isso sai do núcleo padrão; quando sair versão nova, me chama que
+   eu reaplico."*
+
+### O que continua sendo bug do ZX LAB (aí sim, reporte)
+
+Produto **quebrado como veio** — modelo de IA aposentado, erro em código que ninguém tocou, teste
+vermelho num clone limpo — é bug do mantenedor. Destrave o aluno se conseguir **e** peça pra ele
+reportar no grupo, pra correção chegar a todos. Reportar bug ≠ negar acesso.
 
 Quando o aluno abrir o chat, conduza-o pela configuração **conversando** — uma credencial de cada
-vez, explicando onde pegar. No fim, faça o deploy e rode o smoke test. É isso. Nada de código.
+vez, explicando onde pegar. No fim, faça o deploy e rode o smoke test.
 
 > ⚠️ **O JEITO ZX CONTROL É A CONVERSA, NÃO O SCRIPT.** Existe um wizard de terminal equivalente
 > (`node setup/configure.mjs`) como alternativa pra quem prefere fluxo scriptado — mas o **formato
