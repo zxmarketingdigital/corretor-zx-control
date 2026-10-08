@@ -16,7 +16,7 @@
 //   painel/assets/logo.*    cópia do logo local (docs/assets/logo.* também)
 
 import { existsSync, mkdirSync, copyFileSync, constants as fsConst, readFileSync, writeFileSync, readdirSync, unlinkSync, lstatSync, renameSync, realpathSync } from "node:fs";
-import { join, dirname, extname, resolve } from "node:path";
+import { join, dirname, extname, resolve, relative, isAbsolute, sep } from "node:path";
 import { homedir } from "node:os";
 import { randomBytes } from "node:crypto";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -60,7 +60,9 @@ export function validarLogoEntrada(v) {
   const caminho = resolve(limparCaminho(s));
   if (!EXT_LOGO.includes(extname(caminho).toLowerCase())) return { ok: false, erro: `Logo precisa ser png, jpg, svg ou webp (recebi "${extname(caminho) || "sem extensão"}").` };
   if (!existsSync(caminho)) return { ok: false, erro: `Não achei o arquivo ${caminho}.` };
-  if (lstatSync(caminho).isSymbolicLink()) return { ok: false, erro: `${caminho} é um link simbólico; informe o arquivo real.` };
+  const st = lstatSync(caminho);
+  if (st.isSymbolicLink()) return { ok: false, erro: `${caminho} é um link simbólico; informe o arquivo real.` };
+  if (!st.isFile()) return { ok: false, erro: `${caminho} não é um arquivo.` };
   return { ok: true, logo: null, origem: caminho }; // logo vira "assets/logo.<ext>" ao gravar
 }
 
@@ -164,15 +166,20 @@ export function lerAppConfig(arquivo) {
 
 /** Recusa symlink em qualquer ponto do caminho (dentro da raiz): gravar/apagar seguindo link sairia da raiz. */
 function recusarSymlink(alvo, raiz) {
-  const rel = alvo.slice(raiz.length).split(/[\\/]/).filter(Boolean);
+  raiz = resolve(raiz);
+  alvo = resolve(alvo);
+  const rel0 = relative(raiz, alvo);
+  if (rel0.startsWith("..") || isAbsolute(rel0)) throw new Error(`${alvo} está fora da pasta do projeto. Nada foi alterado.`);
   let atual = raiz;
-  for (const parte of rel) {
+  for (const parte of rel0.split(sep).filter(Boolean)) {
     atual = join(atual, parte);
-    if (!existsSync(atual) && !lstatExiste(atual)) break;
+    if (!lstatExiste(atual)) break;
     if (lstatSync(atual).isSymbolicLink()) throw new Error(`${atual} é um link simbólico; recusei para não gravar fora da pasta do projeto. Nada foi alterado.`);
   }
-  const real = existsSync(alvo) ? realpathSync(alvo) : null;
-  if (real && !real.startsWith(realpathSync(raiz))) throw new Error(`${alvo} aponta para fora da pasta do projeto. Nada foi alterado.`);
+  if (existsSync(alvo)) {
+    const rel = relative(realpathSync(raiz), realpathSync(alvo));
+    if (rel === ".." || rel.startsWith(".." + sep) || isAbsolute(rel)) throw new Error(`${alvo} aponta para fora da pasta do projeto. Nada foi alterado.`);
+  }
 }
 function lstatExiste(p) { try { lstatSync(p); return true; } catch { return false; } }
 

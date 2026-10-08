@@ -226,3 +226,14 @@ test("config.js com token sai 0600; --check já recusa logo simbólico", () => {
   symlinkSync(join(raiz, "real.png"), join(raiz, "link.png"));
   assert.equal(validarMarca({ nome: "A", cor_primaria: "#112233", logo: join(raiz, "link.png") }).ok, false);
 });
+
+test("--logo apontando para pasta é recusado; irmão com prefixo parecido não passa pela checagem de raiz", () => {
+  const raiz = mkdtempSync(join(tmpdir(), "marca-"));
+  mkdirSync(join(raiz, "dir.png"));
+  assert.equal(validarMarca({ nome: "A", cor_primaria: "#112233", logo: join(raiz, "dir.png") }).ok, false);
+  const base = mkdtempSync(join(tmpdir(), "base-"));
+  mkdirSync(join(base, "proj")); mkdirSync(join(base, "proj-evil"));
+  symlinkSync(join(base, "proj-evil"), join(base, "proj", "painel"));
+  assert.throws(() => gravarMarca(validarMarca({ nome: "A", cor_primaria: "#112233" }), { raiz: join(base, "proj") }), /link simbólico/);
+  assert.equal(existsSync(join(base, "proj-evil", "config.js")), false);
+});
