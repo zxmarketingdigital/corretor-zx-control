@@ -121,8 +121,11 @@ Com as respostas, escreva os arquivos de config (não comite — estão no `.git
   em `painel/config.js` sem apagar o resto, mais `docs/marca.config.js` para a proposta):
 
 ```bash
-node setup/marca.mjs --nome "<nome>" --cor "#RRGGBB" [--cor-secundaria "#RRGGBB"] [--logo <caminho|https://...>] --bearer-token "<PANEL_TOKEN>"
+node setup/marca.mjs --nome "<nome>" --cor "#RRGGBB" [--cor-secundaria "#RRGGBB"] [--logo <caminho|https://...>]
 ```
+
+  O token do painel NÃO vai no comando: o script lê o `PANEL_TOKEN` do `.env` que você já escreveu
+  acima (ou da variável de ambiente), para não ficar no histórico do shell.
 
   Saiu com erro → mostre a mensagem ao aluno e pergunte o campo de novo. Sem `--cor`, ele usa o âmbar
   padrão e avisa; repita o aviso ao aluno. `--check` só valida, sem gravar.

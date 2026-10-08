@@ -6,6 +6,8 @@
 //   2) Direto (é o que o Claude Code roda na conversa de instalação):
 //        node setup/marca.mjs --nome "Carlos Imóveis" --cor "#1E88E5" [--cor-secundaria "#0D47A1"] \
 //             [--logo ~/Downloads/logo.png | --logo https://site.com/logo.svg] [--check]
+//      O token do painel NÃO vai por argumento (apareceria no histórico e na lista de processos):
+//      é lido de PANEL_TOKEN (ambiente) ou da linha PANEL_TOKEN= do .env na raiz do repo.
 //      --check só valida e imprime, sem gravar nada.
 //
 // Onde grava (tudo gitignored; nada disso vai pro repositório público):
@@ -167,9 +169,21 @@ export function gravarMarca({ marca, logoOrigem }, { raiz = RAIZ, bearerToken } 
 
 // ── CLI ────────────────────────────────────────────────────────────────────
 
+/** Token do painel: variável de ambiente ou .env/.dev.vars da raiz (gitignored). Nunca por argumento. */
+export function lerPanelToken(raiz = RAIZ, env = process.env) {
+  if (env.PANEL_TOKEN) return env.PANEL_TOKEN.trim();
+  for (const f of [".env", ".dev.vars"]) {
+    const arq = join(raiz, f);
+    if (!existsSync(arq)) continue;
+    const m = /^\s*PANEL_TOKEN\s*=\s*["']?([^"'\r\n]+?)["']?\s*$/m.exec(readFileSync(arq, "utf8"));
+    if (m) return m[1];
+  }
+  return undefined;
+}
+
 function lerArgs(argv) {
   const out = {};
-  const mapa = { "--nome": "nome", "--cor": "cor_primaria", "--cor-secundaria": "cor_secundaria", "--logo": "logo", "--bearer-token": "bearerToken" };
+  const mapa = { "--nome": "nome", "--cor": "cor_primaria", "--cor-secundaria": "cor_secundaria", "--logo": "logo" };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === "--check") out.check = true;
     else if (mapa[argv[i]]) out[mapa[argv[i]]] = argv[++i] ?? "";
@@ -191,7 +205,7 @@ async function main() {
     console.log(JSON.stringify({ ...v.marca, logoOrigem: v.logoOrigem }, null, 2));
     return;
   }
-  const r = gravarMarca(v, { bearerToken: args.bearerToken });
+  const r = gravarMarca(v, { bearerToken: lerPanelToken() });
   console.log(`✓ Marca gravada: ${r.marca.nome} · ${r.marca.cor_primaria}${r.marca.logo ? ` · logo ${r.marca.logo}` : " · sem logo (só o nome)"}`);
   for (const a of r.arquivos) console.log(`  ${a}`);
 }

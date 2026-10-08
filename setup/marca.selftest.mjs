@@ -5,7 +5,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, copyFi
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import vm from "node:vm";
-import { validarMarca, gravarMarca, AVISO_COR_PADRAO } from "./marca.mjs";
+import { validarMarca, gravarMarca, lerPanelToken, AVISO_COR_PADRAO } from "./marca.mjs";
 
 function lerJs(arq, chave) {
   const ctx = { window: {} };
@@ -82,4 +82,12 @@ test("nome hostil não escapa do literal JS; logo com espaço e caminho absoluto
   assert.deepEqual(Object.keys(docs).sort(), ["cor_primaria", "cor_secundaria", "logo", "nome"]);
   const cfg = lerJs(join(raiz, "painel", "config.js"), "APP_CONFIG");
   assert.equal(Object.keys(cfg.MARCA).includes("token"), false); // MARCA é substituída, não mesclada
+});
+
+test("token do painel vem de env ou .env, nunca de argumento", () => {
+  const raiz = mkdtempSync(join(tmpdir(), "marca-"));
+  assert.equal(lerPanelToken(raiz, {}), undefined);
+  writeFileSync(join(raiz, ".env"), 'A=1\nPANEL_TOKEN="czx-abc"\n');
+  assert.equal(lerPanelToken(raiz, {}), "czx-abc");
+  assert.equal(lerPanelToken(raiz, { PANEL_TOKEN: "envtok" }), "envtok");
 });
