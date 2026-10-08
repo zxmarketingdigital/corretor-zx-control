@@ -19,14 +19,12 @@ import { existsSync, mkdirSync, copyFileSync, readFileSync, writeFileSync, readd
 import { join, dirname, extname, resolve } from "node:path";
 import { homedir } from "node:os";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import vm from "node:vm";
 
 await import("../painel/marca.js"); // script clássico: registra globalThis.ZXMarca (mesma lógica do navegador)
 const Z = globalThis.ZXMarca;
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), "..");
 const EXT_LOGO = [".png", ".jpg", ".jpeg", ".svg", ".webp"];
-const PLACEHOLDER_TOKEN = "seu-panel-token-aqui";
 
 export const AVISO_COR_PADRAO =
   "Usando a cor padrão ZX (âmbar). Troque depois em painel/config.js (campo MARCA.cor_primaria).";
@@ -115,16 +113,40 @@ export async function perguntarMarca(ask, { nomePadrao = "" } = {}) {
 
 // ── Gravação ───────────────────────────────────────────────────────────────
 
-function lerAppConfig(arquivo) {
+/**
+ * Lê `window.APP_CONFIG = {...};` SEM executar o arquivo. Aceita só o formato que o painel usa:
+ * objeto literal com strings, números, booleanos, null, objetos aninhados, comentários e vírgula final.
+ * Qualquer outra construção (chamada, location.origin, template literal) lança erro.
+ * Retorna null se o arquivo não existe.
+ */
+export function lerAppConfig(arquivo) {
   if (!existsSync(arquivo)) return null;
-  try {
-    const ctx = { window: {} };
-    vm.runInNewContext(readFileSync(arquivo, "utf8"), ctx, { timeout: 1000 });
-    const cfg = ctx.window.APP_CONFIG;
-    return cfg && typeof cfg === "object" ? cfg : null;
-  } catch {
-    return null;
+  const src = readFileSync(arquivo, "utf8");
+  let json = "";
+  let i = 0;
+  const n = src.length;
+  while (i < n) {
+    const c = src[i];
+    if (c === '"' || c === "'") { // string: copia como JSON
+      let j = i + 1, buf = "";
+      while (j < n && src[j] !== c) {
+        if (src[j] === "\\") { buf += src[j] + (src[j + 1] ?? ""); j += 2; } else { buf += src[j++]; }
+      }
+      if (j >= n) throw new Error("string sem fechamento");
+      json += c === '"' ? `"${buf}"` : JSON.stringify(buf.replace(/\\(.)/g, "$1"));
+      i = j + 1;
+    } else if (c === "/" && src[i + 1] === "/") { while (i < n && src[i] !== "\n") i++; }
+    else if (c === "/" && src[i + 1] === "*") { const e = src.indexOf("*/", i + 2); if (e < 0) throw new Error("comentário sem fechamento"); i = e + 2; }
+    else { json += c; i++; }
   }
+  const m = /^\s*window\.APP_CONFIG\s*=\s*(\{[\s\S]*\})\s*;?\s*$/.exec(json);
+  if (!m) throw new Error("formato inesperado (esperado: window.APP_CONFIG = { ... };)");
+  const corpo = m[1]
+    .replace(/([{,]\s*)([A-Za-z_$][\w$]*)(\s*:)/g, '$1"$2"$3') // chaves sem aspas
+    .replace(/,(\s*[}\]])/g, "$1"); // vírgula final
+  const cfg = JSON.parse(corpo); // qualquer expressão (location.origin, chamadas) falha aqui
+  if (!cfg || typeof cfg !== "object" || Array.isArray(cfg)) throw new Error("APP_CONFIG não é um objeto");
+  return cfg;
 }
 
 function copiarLogo(origem, raiz) {
@@ -148,9 +170,16 @@ export function gravarMarca({ marca, logoOrigem }, { raiz = RAIZ, bearerToken } 
   if (logoOrigem) m.logo = copiarLogo(logoOrigem, raiz);
 
   const arquivoConfig = join(raiz, "painel", "config.js");
-  const base = lerAppConfig(arquivoConfig) ?? lerAppConfig(join(raiz, "painel", "config.example.js")) ?? {};
+  let base;
+  try {
+    base = lerAppConfig(arquivoConfig) ?? lerAppConfig(join(raiz, "painel", "config.example.js")) ?? {};
+  } catch (e) {
+    // não sobrescreve um config existente que não foi entendido: perderia WORKER_URL e token
+    throw new Error(`Não consegui ler painel/config.js (${e.message}). Nada foi alterado. Corrija o arquivo (ou mova-o) e rode de novo.`);
+  }
   const cfg = { ...base, MARCA: m };
-  if (bearerToken && (!cfg.BEARER_TOKEN || cfg.BEARER_TOKEN === PLACEHOLDER_TOKEN)) cfg.BEARER_TOKEN = bearerToken;
+  // token novo (PANEL_TOKEN do wizard/.env) sincroniza o painel; sem token novo, o existente fica
+  if (bearerToken) cfg.BEARER_TOKEN = bearerToken;
   writeFileSync(
     arquivoConfig,
     "// Gerado por setup/marca.mjs. Contém o token do painel: NÃO commitar (está no .gitignore).\n" +
@@ -205,7 +234,8 @@ async function main() {
     console.log(JSON.stringify({ ...v.marca, logoOrigem: v.logoOrigem }, null, 2));
     return;
   }
-  const r = gravarMarca(v, { bearerToken: lerPanelToken() });
+  let r;
+  try { r = gravarMarca(v, { bearerToken: lerPanelToken() }); } catch (e) { console.error(`✗ ${e.message}`); process.exit(1); }
   console.log(`✓ Marca gravada: ${r.marca.nome} · ${r.marca.cor_primaria}${r.marca.logo ? ` · logo ${r.marca.logo}` : " · sem logo (só o nome)"}`);
   for (const a of r.arquivos) console.log(`  ${a}`);
 }

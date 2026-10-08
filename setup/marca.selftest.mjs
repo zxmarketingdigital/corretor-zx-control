@@ -5,7 +5,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, copyFi
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import vm from "node:vm";
-import { validarMarca, gravarMarca, lerPanelToken, AVISO_COR_PADRAO } from "./marca.mjs";
+import { validarMarca, gravarMarca, lerPanelToken, lerAppConfig, AVISO_COR_PADRAO } from "./marca.mjs";
 
 function lerJs(arq, chave) {
   const ctx = { window: {} };
@@ -40,7 +40,7 @@ test("grava config preservando WORKER_URL/BEARER, copia logo e gera docs/marca.c
   const logo = join(raiz, "origem.png");
   writeFileSync(logo, "png");
   const v = validarMarca({ nome: "Carlos", cor_primaria: "#1E88E5", logo });
-  gravarMarca(v, { raiz, bearerToken: "outro" });
+  gravarMarca(v, { raiz });
   const cfg = lerJs(join(raiz, "painel", "config.js"), "APP_CONFIG");
   assert.equal(cfg.WORKER_URL, "https://w.example");
   assert.equal(cfg.BEARER_TOKEN, "tok");
@@ -90,4 +90,38 @@ test("token do painel vem de env ou .env, nunca de argumento", () => {
   writeFileSync(join(raiz, ".env"), 'A=1\nPANEL_TOKEN="czx-abc"\n');
   assert.equal(lerPanelToken(raiz, {}), "czx-abc");
   assert.equal(lerPanelToken(raiz, { PANEL_TOKEN: "envtok" }), "envtok");
+});
+
+test("config.js é lido sem executar: comentários, // dentro de URL, aspas simples e vírgula final", () => {
+  const raiz = mkdtempSync(join(tmpdir(), "marca-"));
+  const arq = join(raiz, "config.js");
+  writeFileSync(arq, `// topo\nwindow.APP_CONFIG = {\n  WORKER_URL: 'https://w.example/x', /* c */\n  "BEARER_TOKEN": "t//k", // fim\n  MARCA: { nome: "A", },\n};\n`);
+  assert.deepEqual(JSON.parse(JSON.stringify(lerAppConfig(arq))), { WORKER_URL: "https://w.example/x", BEARER_TOKEN: "t//k", MARCA: { nome: "A" } });
+});
+
+test("config.js com código (escape de contexto, location.origin) é recusado sem executar e sem sobrescrever", () => {
+  const raiz = mkdtempSync(join(tmpdir(), "marca-"));
+  mkdirSync(join(raiz, "painel"));
+  const marcador = join(raiz, "executou.txt");
+  const hostil = `window.APP_CONFIG = { X: this.constructor.constructor("return process")().mainModule.require("fs").writeFileSync(${JSON.stringify(marcador)}, "x") };`;
+  const arq = join(raiz, "painel", "config.js");
+  writeFileSync(arq, hostil);
+  assert.throws(() => gravarMarca(validarMarca({ nome: "A", cor_primaria: "#112233" }), { raiz }), /Nada foi alterado/);
+  assert.equal(existsSync(marcador), false);
+  assert.equal(readFileSync(arq, "utf8"), hostil);
+  const dinamico = 'window.APP_CONFIG = { WORKER_URL: location.origin, BEARER_TOKEN: "t" };';
+  writeFileSync(arq, dinamico);
+  assert.throws(() => gravarMarca(validarMarca({ nome: "A", cor_primaria: "#112233" }), { raiz }), /Nada foi alterado/);
+  assert.equal(readFileSync(arq, "utf8"), dinamico);
+});
+
+test("token novo sincroniza o painel; sem token novo o existente fica", () => {
+  const raiz = mkdtempSync(join(tmpdir(), "marca-"));
+  mkdirSync(join(raiz, "painel"));
+  writeFileSync(join(raiz, "painel", "config.js"), 'window.APP_CONFIG = { WORKER_URL: "https://w.example", BEARER_TOKEN: "antigo" };');
+  const v = validarMarca({ nome: "A", cor_primaria: "#112233" });
+  gravarMarca(v, { raiz });
+  assert.equal(lerJs(join(raiz, "painel", "config.js"), "APP_CONFIG").BEARER_TOKEN, "antigo");
+  gravarMarca(v, { raiz, bearerToken: "novo" });
+  assert.equal(lerJs(join(raiz, "painel", "config.js"), "APP_CONFIG").BEARER_TOKEN, "novo");
 });
