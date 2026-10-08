@@ -100,7 +100,7 @@ Pergunte e vá anotando. Para cada uma, explique onde encontrar:
 
 Gere você mesmo um **`WEBHOOK_SECRET`** forte (string aleatória) — guarde, vai usar no passo 6.
 
-**A marca do cliente** (o painel e a proposta que o cliente vê saem com a marca dele, não com a nossa).
+**A marca do cliente** (o painel, a proposta e a apresentação saem com a marca dele, não com a nossa).
 Pergunte, também uma de cada vez:
 
 | Campo | Obrigatório | Como pedir |
@@ -118,7 +118,7 @@ Com as respostas, escreva os arquivos de config (não comite — estão no `.git
 - `painel/config.js` — a partir de `painel/config.example.js`, com `WORKER_URL` (URL do Worker após
   o deploy) e `BEARER_TOKEN` (o mesmo `PANEL_TOKEN` do `.env`).
 - **A marca** — rode (ele valida os campos, copia o logo para `painel/assets/` e grava o bloco `MARCA`
-  em `painel/config.js` sem apagar o resto, mais `docs/marca.config.js` para a proposta):
+  em `painel/config.js` sem apagar o resto, mais `docs/marca.config.js` para a proposta e a apresentação):
 
 ```bash
 node setup/marca.mjs --nome "<nome>" --cor "#RRGGBB" [--cor-secundaria "#RRGGBB"] [--logo <caminho|https://...>]
@@ -173,8 +173,8 @@ pnpm wrangler secret put GOOGLE_REVIEW_LINK
 
 Após o deploy, pegue a URL do Worker e atualize `painel/config.js` com ela, depois faça
 `pnpm wrangler pages deploy painel/` novamente. O deploy leva junto `painel/marca.js` e
-`painel/assets/` (o logo). A proposta (`docs/proposta.html`) usa `docs/marca.config.js`,
-`docs/marca.js` e `docs/assets/`: publique a pasta `docs/` com esses três se for hospedar a proposta.
+`painel/assets/` (o logo). A proposta e a apresentação (`docs/proposta.html`, `docs/apresentacao.html`) usam `docs/marca.config.js`,
+`docs/marca.js` e `docs/assets/`: publique a pasta `docs/` com esses três se for hospedar essas páginas.
 
 ### 6. Conecte o WhatsApp
 

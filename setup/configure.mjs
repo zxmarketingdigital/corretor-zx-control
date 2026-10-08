@@ -6,6 +6,7 @@
 import { createInterface } from "readline";
 import { writeFileSync, existsSync } from "fs";
 import { perguntarMarca, gravarMarca } from "./marca.mjs";
+import { verificarEvolution } from "./evolution-check.mjs";
 
 const rl = createInterface({ input: process.stdin, output: process.stdout });
 const ask = (q) => new Promise((r) => rl.question(q, r));
@@ -31,15 +32,6 @@ async function pingGemini(key) {
       body: JSON.stringify({ contents: [{ parts: [{ text: "ping" }] }] }) },
   );
   return res.ok;
-}
-
-async function pingEvolution(url, instance, key) {
-  const res = await fetch(`${url}/instance/fetchInstances`, {
-    headers: { apikey: key },
-  });
-  if (!res.ok) return false;
-  const data = await res.json().catch(() => []);
-  return Array.isArray(data);
 }
 
 console.log("\n╔══════════════════════════════════════════════╗");
@@ -71,8 +63,10 @@ const evolutionUrl = await ask("  EVOLUTION_URL (ex: https://evo.seuservidor.com
 const evolutionInstance = await ask("  EVOLUTION_INSTANCE: ");
 const evolutionKey = await ask("  EVOLUTION_API_KEY: ");
 process.stdout.write("  Verificando Evolution… ");
-const evoOk = await pingEvolution(evolutionUrl, evolutionInstance, evolutionKey).catch(() => false);
-console.log(evoOk ? "✓ OK" : "✗ Falhou (verifique URL, instância e key)");
+const evo = await verificarEvolution(evolutionUrl, evolutionInstance, evolutionKey)
+  .catch((e) => ({ ok: false, motivo: `não consegui falar com a Evolution (${e?.message ?? e})` }));
+const evoOk = evo.ok;
+console.log(evoOk ? `✓ OK (instância ${evo.estado})` : `✗ Falhou: ${evo.motivo}`);
 
 section("5. Segurança do Painel");
 const panelToken = await ask("  PANEL_TOKEN (token secreto para o painel — crie um forte): ");
