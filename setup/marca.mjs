@@ -132,6 +132,7 @@ export function lerAppConfig(arquivo) {
   if (!existsSync(arquivo)) return null;
   const src = readFileSync(arquivo, "utf8");
   let json = "";
+  const textos = []; // strings saem do esqueleto: as trocas de chave/vírgula abaixo nunca tocam em conteúdo de string
   let i = 0;
   const n = src.length;
   while (i < n) {
@@ -142,7 +143,8 @@ export function lerAppConfig(arquivo) {
         if (src[j] === "\\") { buf += src[j] + (src[j + 1] ?? ""); j += 2; } else { buf += src[j++]; }
       }
       if (j >= n) throw new Error("string sem fechamento");
-      json += c === '"' ? `"${buf}"` : JSON.stringify(desescapar(buf));
+      textos.push(c === '"' ? `"${buf}"` : JSON.stringify(desescapar(buf)));
+      json += `\u0001${textos.length - 1}\u0001`;
       i = j + 1;
     } else if (c === "/" && src[i + 1] === "/") { while (i < n && src[i] !== "\n") i++; }
     else if (c === "/" && src[i + 1] === "*") { const e = src.indexOf("*/", i + 2); if (e < 0) throw new Error("comentário sem fechamento"); i = e + 2; }
@@ -153,7 +155,7 @@ export function lerAppConfig(arquivo) {
   const corpo = m[1]
     .replace(/([{,]\s*)([A-Za-z_$][\w$]*)(\s*:)/g, '$1"$2"$3') // chaves sem aspas
     .replace(/,(\s*[}\]])/g, "$1"); // vírgula final
-  const cfg = JSON.parse(corpo); // qualquer expressão (location.origin, chamadas) falha aqui
+  const cfg = JSON.parse(corpo.replace(/\u0001(\d+)\u0001/g, (_, k) => textos[Number(k)])); // qualquer expressão (location.origin, chamadas) falha aqui
   if (!cfg || typeof cfg !== "object" || Array.isArray(cfg)) throw new Error("APP_CONFIG não é um objeto");
   return cfg;
 }
@@ -236,7 +238,8 @@ export function gravarMarca({ marca, logoOrigem }, { raiz = RAIZ, bearerToken } 
 
 /** Token do painel: variável de ambiente ou .env/.dev.vars da raiz (gitignored). Nunca por argumento. */
 export function lerPanelToken(raiz = RAIZ, env = process.env) {
-  if (env.PANEL_TOKEN) return env.PANEL_TOKEN.trim();
+  const doEnv = (env.PANEL_TOKEN ?? "").trim();
+  if (doEnv) return doEnv;
   for (const f of [".env", ".dev.vars"]) {
     const arq = join(raiz, f);
     if (!existsSync(arq)) continue;

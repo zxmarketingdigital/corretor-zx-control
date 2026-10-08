@@ -177,3 +177,14 @@ test("parser: escapes de aspas simples; .env com comentário inline e aspas", ()
   writeFileSync(join(raiz, ".env"), 'export PANEL_TOKEN="com espaco # e hash"\n');
   assert.equal(lerPanelToken(raiz, {}), "com espaco # e hash");
 });
+
+test("nome com vírgula e dois-pontos sobrevive a regravar a marca; PANEL_TOKEN só com espaços cai pro .env", () => {
+  const raiz = mkdtempSync(join(tmpdir(), "marca-"));
+  mkdirSync(join(raiz, "painel"));
+  const v = validarMarca({ nome: "Carlos, Imóveis: Premium", cor_primaria: "#112233" });
+  gravarMarca(v, { raiz, bearerToken: "t" });
+  gravarMarca(v, { raiz });
+  assert.equal(lerJs(join(raiz, "painel", "config.js"), "APP_CONFIG").MARCA.nome, "Carlos, Imóveis: Premium");
+  writeFileSync(join(raiz, ".env"), "PANEL_TOKEN=do-env\n");
+  assert.equal(lerPanelToken(raiz, { PANEL_TOKEN: "   " }), "do-env");
+});
