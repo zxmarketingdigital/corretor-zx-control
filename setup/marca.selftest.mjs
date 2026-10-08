@@ -147,7 +147,9 @@ test("symlink no config, nas pastas ou no logo é recusado sem gravar fora da ra
   const raiz3 = mkdtempSync(join(tmpdir(), "marca-"));
   mkdirSync(join(raiz3, "painel"));
   symlinkSync(join(fora, "alvo.js"), join(raiz3, "x.png"));
-  assert.throws(() => gravarMarca(validarMarca({ nome: "A", cor_primaria: "#112233", logo: join(raiz3, "x.png") }), { raiz: raiz3 }), /link simbólico/);
+  assert.equal(validarMarca({ nome: "A", cor_primaria: "#112233", logo: join(raiz3, "x.png") }).ok, false);
+  const entrada = { marca: { nome: "A", cor_primaria: "#112233" }, logoOrigem: join(raiz3, "x.png") }; // contorna a validação
+  assert.throws(() => gravarMarca(entrada, { raiz: raiz3 }), /link simbólico/);
 });
 
 test("troca de logo: o antigo só some depois do novo estar no lugar; config ilegível não mexe em assets", () => {

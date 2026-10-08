@@ -262,22 +262,24 @@ export function gravarMarca({ marca, logoOrigem }, { raiz = RAIZ, bearerToken } 
     `window.MARCA_CONFIG = ${JSON.stringify(m, null, 2)};\n`;
   // os dois arquivos preparados em temporários ANTES de trocar qualquer destino; se a 2ª troca falhar, a 1ª volta ao que era
   const tmpConfig = nomeTmp(arquivoConfig), tmpDocs = nomeTmp(arquivoDocs);
-  const anterior = existsSync(arquivoConfig) ? readFileSync(arquivoConfig, "utf8") : null;
+  const bakConfig = nomeTmp(arquivoConfig); // cópia do config atual, para voltar por rename (atômico) se a 2ª troca falhar
+  const havia = existsSync(arquivoConfig);
   try {
     writeFileSync(tmpConfig, txtConfig, { flag: "wx", mode: 0o600 }); // tem o token do painel: só o dono lê
     writeFileSync(tmpDocs, txtDocs, { flag: "wx" });
+    if (havia) copyFileSync(arquivoConfig, bakConfig, fsConst.COPYFILE_EXCL);
     renameSync(tmpConfig, arquivoConfig);
     try {
       renameSync(tmpDocs, arquivoDocs);
     } catch (e) {
-      if (anterior === null) unlinkSync(arquivoConfig); else writeFileSync(arquivoConfig, anterior);
+      if (havia) renameSync(bakConfig, arquivoConfig); else unlinkSync(arquivoConfig);
       throw e;
     }
   } catch (e) {
     logoCopiado?.desfazer(); // configs não trocaram: o logo novo recém-criado sai e o antigo continua valendo
     throw e;
   } finally {
-    for (const t of [tmpConfig, tmpDocs]) { try { unlinkSync(t); } catch {} }
+    for (const t of [tmpConfig, tmpDocs, bakConfig]) { try { unlinkSync(t); } catch {} }
   }
   logoCopiado?.limparAntigos(); // só agora, com os configs já apontando para o logo novo
   return { marca: m, arquivos: [arquivoConfig, arquivoDocs] };
