@@ -77,7 +77,7 @@
     var s = v.trim();
     if (!s) return null;
     if (/^https:\/\//i.test(s)) {
-      try { var u = new URL(s); return u.protocol === "https:" && u.hostname ? u.href : null; } catch (e) { return null; }
+      try { var u = new URL(s); return u.protocol === "https:" && u.hostname && !u.username && !u.password ? u.href : null; } catch (e) { return null; }
     }
     // caminho relativo copiado pelo setup (nada de "..", barra inicial, "javascript:", "data:" etc.)
     return /^assets\/logo\.(png|jpe?g|svg|webp)$/i.test(s) ? s : null;

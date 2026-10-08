@@ -195,24 +195,33 @@ function copiarLogo(origem, raiz) {
   const dirs = [join(raiz, "painel", "assets"), join(raiz, "docs", "assets")];
   for (const dir of dirs) recusarSymlink(join(dir, nomeFinal), raiz); // todos os destinos validados antes de tocar em qualquer um
   const criados = [];
+  const backups = []; // [destino, backup] de logo que já existia e vai ser substituído
+  const desfazer = () => {
+    for (const c of criados) { try { unlinkSync(c); } catch {} }
+    for (const [dest, bak] of backups) { try { renameSync(bak, dest); } catch {} } // volta o logo que estava no lugar
+  };
   try {
     for (const dir of dirs) {
       mkdirSync(dir, { recursive: true });
       const destino = join(dir, nomeFinal);
-      const jaExistia = existsSync(destino);
+      if (existsSync(destino)) {
+        const bak = nomeTmp(destino);
+        copyFileSync(destino, bak, fsConst.COPYFILE_EXCL);
+        backups.push([destino, bak]);
+      } else criados.push(destino);
       gravarAtomico(destino, (tmp) => copyFileSync(origem, tmp, fsConst.COPYFILE_EXCL));
-      if (!jaExistia) criados.push(destino);
     }
   } catch (e) {
-    for (const c of criados) { try { unlinkSync(c); } catch {} } // falhou no meio: o que era novo sai, os configs seguem apontando para o logo antigo
+    desfazer(); // falhou no meio: configs seguem apontando para o logo antigo, que volta ao lugar
     throw e;
   }
-  const limparAntigos = () => {
+  const limparAntigos = () => { // só depois de os configs apontarem para o novo
+    for (const [, bak] of backups) { try { unlinkSync(bak); } catch {} }
     for (const dir of dirs) {
       for (const f of readdirSync(dir)) if (/^logo\.[a-z]+$/i.test(f) && f !== nomeFinal) { try { unlinkSync(join(dir, f)); } catch {} }
     }
   };
-  return { rel: `assets/${nomeFinal}`, limparAntigos, desfazer: () => { for (const c of criados) { try { unlinkSync(c); } catch {} } } };
+  return { rel: `assets/${nomeFinal}`, limparAntigos, desfazer };
 }
 
 /**

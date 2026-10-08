@@ -17,7 +17,7 @@ describe("ZXMarca", () => {
   it("logo: aceita https e assets/ relativo; rejeita javascript:, data:, http e ..", () => {
     expect(Z.validarLogo("assets/logo.png")).toBe("assets/logo.png");
     expect(Z.validarLogo("https://x.com/l.svg")).toBe("https://x.com/l.svg");
-    for (const ruim of ["javascript:alert(1)", "data:image/png;base64,AA", "http://x.com/l.png", "assets/../x.png", "/etc/x.png", "assets/logo.exe", "assets/outro.png", "assets/logo.png/x", ""]) expect(Z.validarLogo(ruim)).toBeNull();
+    for (const ruim of ["javascript:alert(1)", "data:image/png;base64,AA", "http://x.com/l.png", "assets/../x.png", "/etc/x.png", "assets/logo.exe", "assets/outro.png", "https://user:senha@x.com/l.png", "assets/logo.png/x", ""]) expect(Z.validarLogo(ruim)).toBeNull();
   });
 
   it("sem cor válida cai no âmbar padrão e sinaliza", () => {

@@ -1,7 +1,7 @@
 // Testa setup/marca.mjs (validação + gravação) em diretório temporário. Rodar: node --test setup/marca.selftest.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, copyFileSync, symlinkSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, copyFileSync, symlinkSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import vm from "node:vm";
@@ -200,4 +200,17 @@ test("falha ao copiar o logo no 2º destino não apaga o logo antigo nem deixa o
   assert.equal(existsSync(join(raiz, "painel", "assets", "logo.png")), true);
   assert.equal(existsSync(join(raiz, "painel", "assets", "logo.svg")), false);
   assert.equal(lerJs(join(raiz, "painel", "config.js"), "APP_CONFIG").MARCA.logo, "assets/logo.png");
+});
+
+test("mesmo nome de logo: se a gravação dos configs falhar, o logo antigo volta", () => {
+  const raiz = mkdtempSync(join(tmpdir(), "marca-"));
+  mkdirSync(join(raiz, "painel"));
+  const velho = join(raiz, "v.png"); writeFileSync(velho, "VELHO");
+  const novo = join(raiz, "n.png"); writeFileSync(novo, "NOVO");
+  gravarMarca(validarMarca({ nome: "A", cor_primaria: "#112233", logo: velho }), { raiz });
+  rmSync(join(raiz, "docs", "marca.config.js"));
+  mkdirSync(join(raiz, "docs", "marca.config.js")); // diretório no lugar do arquivo: a troca falha
+  assert.throws(() => gravarMarca(validarMarca({ nome: "A", cor_primaria: "#112233", logo: novo }), { raiz }));
+  assert.equal(readFileSync(join(raiz, "painel", "assets", "logo.png"), "utf8"), "VELHO");
+  assert.equal(readFileSync(join(raiz, "docs", "assets", "logo.png"), "utf8"), "VELHO");
 });
