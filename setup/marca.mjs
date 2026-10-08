@@ -60,6 +60,7 @@ export function validarLogoEntrada(v) {
   const caminho = resolve(limparCaminho(s));
   if (!EXT_LOGO.includes(extname(caminho).toLowerCase())) return { ok: false, erro: `Logo precisa ser png, jpg, svg ou webp (recebi "${extname(caminho) || "sem extensão"}").` };
   if (!existsSync(caminho)) return { ok: false, erro: `Não achei o arquivo ${caminho}.` };
+  if (lstatSync(caminho).isSymbolicLink()) return { ok: false, erro: `${caminho} é um link simbólico; informe o arquivo real.` };
   return { ok: true, logo: null, origem: caminho }; // logo vira "assets/logo.<ext>" ao gravar
 }
 
@@ -263,7 +264,7 @@ export function gravarMarca({ marca, logoOrigem }, { raiz = RAIZ, bearerToken } 
   const tmpConfig = nomeTmp(arquivoConfig), tmpDocs = nomeTmp(arquivoDocs);
   const anterior = existsSync(arquivoConfig) ? readFileSync(arquivoConfig, "utf8") : null;
   try {
-    writeFileSync(tmpConfig, txtConfig, { flag: "wx" });
+    writeFileSync(tmpConfig, txtConfig, { flag: "wx", mode: 0o600 }); // tem o token do painel: só o dono lê
     writeFileSync(tmpDocs, txtDocs, { flag: "wx" });
     renameSync(tmpConfig, arquivoConfig);
     try {

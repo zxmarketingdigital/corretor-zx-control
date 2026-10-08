@@ -1,7 +1,7 @@
 // Testa setup/marca.mjs (validação + gravação) em diretório temporário. Rodar: node --test setup/marca.selftest.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, copyFileSync, symlinkSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, copyFileSync, symlinkSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import vm from "node:vm";
@@ -213,4 +213,14 @@ test("mesmo nome de logo: se a gravação dos configs falhar, o logo antigo volt
   assert.throws(() => gravarMarca(validarMarca({ nome: "A", cor_primaria: "#112233", logo: novo }), { raiz }));
   assert.equal(readFileSync(join(raiz, "painel", "assets", "logo.png"), "utf8"), "VELHO");
   assert.equal(readFileSync(join(raiz, "docs", "assets", "logo.png"), "utf8"), "VELHO");
+});
+
+test("config.js com token sai 0600; --check já recusa logo simbólico", () => {
+  const raiz = mkdtempSync(join(tmpdir(), "marca-"));
+  mkdirSync(join(raiz, "painel"));
+  gravarMarca(validarMarca({ nome: "A", cor_primaria: "#112233" }), { raiz, bearerToken: "t" });
+  assert.equal(statSync(join(raiz, "painel", "config.js")).mode & 0o777, 0o600);
+  writeFileSync(join(raiz, "real.png"), "p");
+  symlinkSync(join(raiz, "real.png"), join(raiz, "link.png"));
+  assert.equal(validarMarca({ nome: "A", cor_primaria: "#112233", logo: join(raiz, "link.png") }).ok, false);
 });
