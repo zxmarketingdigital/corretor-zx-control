@@ -107,7 +107,7 @@
   // Mapa de CSS custom properties derivado da marca.
   function variaveis(marca) {
     var m = marca.cor_primaria ? marca : normalizar(marca);
-    var p = m.cor_primaria;
+    var p = legivelNoEscuro(m.cor_primaria, 4.5); // cor de marca quase preta ficaria invisível no fundo escuro do painel
     var luz = m.cor_secundaria ? legivelNoEscuro(m.cor_secundaria, 4.5) : legivelNoEscuro(misturar(p, CLARO, 0.2), 4.5);
     var brilho = legivelNoEscuro(misturar(luz, CLARO, 0.35), 7);
     function lista(h) { return rgb(h).join(", "); }

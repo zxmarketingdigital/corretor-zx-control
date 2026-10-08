@@ -15,9 +15,10 @@
 //   docs/marca.config.js    window.MARCA_CONFIG      (páginas de docs/, sem token nenhum)
 //   painel/assets/logo.*    cópia do logo local (docs/assets/logo.* também)
 
-import { existsSync, mkdirSync, copyFileSync, readFileSync, writeFileSync, readdirSync, unlinkSync, lstatSync, renameSync, realpathSync } from "node:fs";
+import { existsSync, mkdirSync, copyFileSync, constants as fsConst, readFileSync, writeFileSync, readdirSync, unlinkSync, lstatSync, renameSync, realpathSync } from "node:fs";
 import { join, dirname, extname, resolve } from "node:path";
 import { homedir } from "node:os";
+import { randomBytes } from "node:crypto";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 await import("../painel/marca.js"); // script clássico: registra globalThis.ZXMarca (mesma lógica do navegador)
@@ -174,9 +175,12 @@ function recusarSymlink(alvo, raiz) {
 }
 function lstatExiste(p) { try { lstatSync(p); return true; } catch { return false; } }
 
-/** Grava em arquivo temporário vizinho e troca por rename (atômico): falha no meio não deixa arquivo pela metade. */
+/** Nome de temporário imprevisível; quem escreve usa criação exclusiva (não segue symlink plantado no lugar). */
+function nomeTmp(destino) { return `${destino}.tmp-${randomBytes(6).toString("hex")}`; }
+
+/** Grava em temporário exclusivo vizinho e troca por rename (atômico): falha no meio não deixa arquivo pela metade. */
 function gravarAtomico(destino, escrever) {
-  const tmp = `${destino}.tmp-${process.pid}`;
+  const tmp = nomeTmp(destino);
   try { escrever(tmp); renameSync(tmp, destino); } catch (e) { try { unlinkSync(tmp); } catch {} throw e; }
 }
 
@@ -188,7 +192,7 @@ function copiarLogo(origem, raiz) {
   for (const dir of dirs) recusarSymlink(join(dir, nomeFinal), raiz); // todos os destinos validados antes de tocar em qualquer um
   for (const dir of dirs) {
     mkdirSync(dir, { recursive: true });
-    gravarAtomico(join(dir, nomeFinal), (tmp) => copyFileSync(origem, tmp)); // novo logo no lugar primeiro...
+    gravarAtomico(join(dir, nomeFinal), (tmp) => copyFileSync(origem, tmp, fsConst.COPYFILE_EXCL)); // novo logo no lugar primeiro...
     for (const f of readdirSync(dir)) {
       if (/^logo\.[a-z]+$/i.test(f) && f !== nomeFinal) unlinkSync(join(dir, f)); // ...só então some o de outra extensão
     }
@@ -223,14 +227,29 @@ export function gravarMarca({ marca, logoOrigem }, { raiz = RAIZ, bearerToken } 
   const cfg = { ...base, MARCA: m };
   // token novo (PANEL_TOKEN do wizard/.env) sincroniza o painel; sem token novo, o existente fica
   if (bearerToken) cfg.BEARER_TOKEN = bearerToken;
-  gravarAtomico(arquivoConfig, (tmp) => writeFileSync(tmp,
-    "// Gerado por setup/marca.mjs. Contém o token do painel: NÃO commitar (está no .gitignore).\n" +
-      `window.APP_CONFIG = ${JSON.stringify(cfg, null, 2)};\n`));
-
   mkdirSync(join(raiz, "docs"), { recursive: true });
-  gravarAtomico(arquivoDocs, (tmp) => writeFileSync(tmp,
+  const txtConfig =
+    "// Gerado por setup/marca.mjs. Contém o token do painel: NÃO commitar (está no .gitignore).\n" +
+    `window.APP_CONFIG = ${JSON.stringify(cfg, null, 2)};\n`;
+  const txtDocs =
     "// Gerado por setup/marca.mjs: marca para as páginas de docs/ (sem token). NÃO commitar (está no .gitignore).\n" +
-      `window.MARCA_CONFIG = ${JSON.stringify(m, null, 2)};\n`));
+    `window.MARCA_CONFIG = ${JSON.stringify(m, null, 2)};\n`;
+  // os dois arquivos preparados em temporários ANTES de trocar qualquer destino; se a 2ª troca falhar, a 1ª volta ao que era
+  const tmpConfig = nomeTmp(arquivoConfig), tmpDocs = nomeTmp(arquivoDocs);
+  const anterior = existsSync(arquivoConfig) ? readFileSync(arquivoConfig, "utf8") : null;
+  try {
+    writeFileSync(tmpConfig, txtConfig, { flag: "wx" });
+    writeFileSync(tmpDocs, txtDocs, { flag: "wx" });
+    renameSync(tmpConfig, arquivoConfig);
+    try {
+      renameSync(tmpDocs, arquivoDocs);
+    } catch (e) {
+      if (anterior === null) unlinkSync(arquivoConfig); else writeFileSync(arquivoConfig, anterior);
+      throw e;
+    }
+  } finally {
+    for (const t of [tmpConfig, tmpDocs]) { try { unlinkSync(t); } catch {} }
+  }
   return { marca: m, arquivos: [arquivoConfig, arquivoDocs] };
 }
 

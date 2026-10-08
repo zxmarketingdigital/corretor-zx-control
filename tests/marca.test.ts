@@ -39,9 +39,14 @@ describe("ZXMarca", () => {
     expect(v["--brand-2"]).toBe("#90CAF9");
   });
 
-  it("texto do botão tem contraste legível: escuro em cor clara, branco em cor escura", () => {
+  it("texto do botão tem contraste legível: escuro em cor clara, contraste mínimo em qualquer cor", () => {
     expect(Z.variaveis(Z.normalizar({ cor_primaria: "#FFE082" }))["--on-primary"]).toBe("#0D0D0D");
-    expect(Z.variaveis(Z.normalizar({ cor_primaria: "#0D47A1" }))["--on-primary"]).toBe("#FFFFFF");
+    // cor de marca escura demais para o fundo do painel é clareada até 4,5:1, e o texto do botão acompanha
+    for (const c of ["#000000", "#0D47A1", "#1E88E5", "#FFE082"]) {
+      const v = Z.variaveis(Z.normalizar({ cor_primaria: c }));
+      expect(Z.contraste(v["--primary"], "#0D0D0D")).toBeGreaterThanOrEqual(4.5);
+      expect(Z.contraste(v["--on-primary"], v["--primary"])).toBeGreaterThanOrEqual(4.5);
+    }
   });
 
   it("cor muito escura gera link/texto legível no fundo escuro", () => {
