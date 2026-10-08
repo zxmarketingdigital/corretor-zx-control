@@ -10,7 +10,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
   :root{
+    /* cor PADRÃO ZX (âmbar): fallback. Com marca configurada (docs/marca.config.js), marca.js sobrescreve estas vars */
     --primary:#D97706; --primary-light:#F59E0B; --primary-bright:#FCD34D; --primary-dark:#92400e;
+    --primary-rgb:217,119,6; --on-primary:#000; --on-primary-hover:#000;
     --bg:#0D0D0D; --bg-alt:#0A0A0A; --surface:#1A1A1A; --surface2:#222; --footer:#080808;
     --text:#E2E8F0; --text-2:#9CA3AF; --text-muted:#6B7280; --border:#2A2A2A; --border-light:#333;
     --green:#4ADE80; --red:#EF4444;
@@ -22,9 +24,15 @@
   .wrap{max-width:960px;margin:0 auto;padding:0 20px}
   .accent{color:var(--primary-light)}
 
+  /* ── MARCA (nome + logo do cliente; some se não houver marca configurada) ── */
+  .brand{display:flex;align-items:center;gap:12px;margin-bottom:26px}
+  .brand-logo{height:36px;max-width:160px;width:auto;object-fit:contain}
+  .brand-logo[hidden],.brand[hidden]{display:none}
+  .brand-nome{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:.95rem;letter-spacing:.04em}
+
   /* ── HERO ── */
   header{padding:64px 0 56px;border-bottom:1px solid var(--border);background:
-    radial-gradient(700px 360px at 50% -10%, rgba(217,119,6,.14), transparent 70%), var(--bg-alt);text-align:left}
+    radial-gradient(700px 360px at 50% -10%, rgba(var(--primary-rgb),.14), transparent 70%), var(--bg-alt);text-align:left}
   .kicker{font-family:'JetBrains Mono',monospace;font-size:.74rem;letter-spacing:.16em;text-transform:uppercase;
     color:var(--primary-light);display:inline-flex;align-items:center;gap:9px;
     border:1px solid var(--border-light);background:var(--surface);padding:7px 14px;border-radius:99px;margin-bottom:24px}
@@ -36,11 +44,11 @@
     border-left:3px solid var(--primary);padding:8px 0 8px 16px}
 
   /* ── BOTÕES ── */
-  .btn{display:inline-block;background:var(--primary);color:#000;font-weight:700;border-radius:10px;
+  .btn{display:inline-block;background:var(--primary);color:var(--on-primary);font-weight:700;border-radius:10px;
     padding:15px 26px;text-decoration:none;transition:.2s;font-size:1rem;text-align:center}
-  .btn:hover{background:var(--primary-light)}
+  .btn:hover{background:var(--primary-light);color:var(--on-primary-hover)}
   .btn.ghost{background:transparent;color:var(--primary-bright);border:1px solid var(--primary-dark)}
-  .btn.ghost:hover{border-color:var(--primary);background:rgba(217,119,6,.08)}
+  .btn.ghost:hover{border-color:var(--primary);background:rgba(var(--primary-rgb),.08)}
   .btn.big{font-size:1.08rem;padding:17px 32px}
   header .btn{margin-top:30px}
 
@@ -62,7 +70,7 @@
   .feat{display:grid;grid-template-columns:46px 1fr;gap:16px;align-items:start;background:var(--surface);
     border:1px solid var(--border);border-radius:14px;padding:20px 22px;transition:.2s}
   .feat:hover{border-color:var(--primary-dark)}
-  .feat .ic{width:46px;height:46px;border-radius:12px;background:rgba(217,119,6,.14);border:1px solid rgba(217,119,6,.3);
+  .feat .ic{width:46px;height:46px;border-radius:12px;background:rgba(var(--primary-rgb),.14);border:1px solid rgba(var(--primary-rgb),.3);
     display:grid;place-items:center;font-size:1.25rem}
   .feat h3{font-size:1.05rem;font-weight:800;margin-bottom:3px}
   .feat p{color:var(--text-2);font-size:.93rem}
@@ -86,7 +94,7 @@
 
   /* ── INVESTIMENTO ── */
   .invest{border-bottom:1px solid var(--border);background:
-    radial-gradient(600px 300px at 50% 0%, rgba(217,119,6,.1), transparent 70%)}
+    radial-gradient(600px 300px at 50% 0%, rgba(var(--primary-rgb),.1), transparent 70%)}
   .prices{display:grid;gap:16px;margin-bottom:24px}
   .price{background:var(--surface);border:1px solid var(--primary-dark);border-radius:16px;padding:28px 26px}
   .price .label{font-family:'JetBrains Mono',monospace;font-size:.74rem;letter-spacing:.14em;text-transform:uppercase;
@@ -97,7 +105,7 @@
   .price ul{list-style:none;margin-top:14px;display:grid;gap:7px}
   .price li{padding-left:24px;position:relative;color:var(--text-2);font-size:.92rem}
   .price li::before{content:"✓";position:absolute;left:2px;color:var(--green);font-weight:700}
-  .anchor{background:linear-gradient(180deg,rgba(217,119,6,.09),transparent);border:1px solid var(--primary-dark);
+  .anchor{background:linear-gradient(180deg,rgba(var(--primary-rgb),.09),transparent);border:1px solid var(--primary-dark);
     border-radius:14px;padding:24px 26px}
   .anchor p{color:var(--text-2);font-size:1rem}
   .anchor .hl{color:var(--primary-bright);font-weight:700}
@@ -115,12 +123,12 @@
 
   /* ── CTA ── */
   .cta{text-align:center;padding:64px 0 72px;border:none;background:
-    radial-gradient(600px 280px at 50% 120%, rgba(217,119,6,.13), transparent 70%)}
+    radial-gradient(600px 280px at 50% 120%, rgba(var(--primary-rgb),.13), transparent 70%)}
   .cta h2{margin-bottom:10px}
   .cta p{color:var(--text-2);margin-bottom:28px;max-width:560px;margin-left:auto;margin-right:auto}
-  .btn-wa{display:inline-flex;align-items:center;gap:10px;background:var(--primary);color:#000;font-weight:800;
+  .btn-wa{display:inline-flex;align-items:center;gap:10px;background:var(--primary);color:var(--on-primary);font-weight:800;
     border-radius:12px;padding:17px 34px;text-decoration:none;transition:.2s;font-size:1.08rem}
-  .btn-wa:hover{background:var(--primary-light);transform:translateY(-1px)}
+  .btn-wa:hover{background:var(--primary-light);color:var(--on-primary-hover);transform:translateY(-1px)}
   .cta .note{margin-top:18px;color:var(--text-muted);font-size:.84rem;margin-bottom:0}
 
   footer{padding:30px 0;text-align:center;color:var(--text-muted);font-family:'JetBrains Mono',monospace;font-size:.76rem;background:var(--footer)}
@@ -136,12 +144,16 @@
     .panel-grid{grid-template-columns:1fr}
   }
 </style>
+<script src="marca.config.js"></script>
+<script src="marca.js"></script>
+<script>ZXMarca.aplicar(window.MARCA_CONFIG);</script>
 </head>
 <body>
 
 <!-- 1. HERO -->
 <header>
   <div class="wrap">
+    <div class="brand" data-marca="barra" hidden><img class="brand-logo" data-marca="logo" alt="" hidden><span class="brand-nome" data-marca="nome"></span></div>
     <span class="kicker"><span class="dot"></span> Assistente de IA · WhatsApp 24h</span>
     <h1>Seu atendimento imobiliário<span class="l2">no automático</span></h1>
     <p class="lead">Enquanto você está na rua fazendo visita, seu assistente de IA atende, qualifica

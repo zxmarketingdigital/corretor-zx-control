@@ -21,7 +21,7 @@ const visitas = DB.visitas.map((v) => ({ ...v }));
 let config = { ...DB.config };
 let imovelSeq = imoveis.length, clienteSeq = clientes.length, visitaSeq = visitas.length; // ids novos não colidem com os seed
 
-const MIME = { ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "application/javascript; charset=utf-8", ".json": "application/json; charset=utf-8", ".svg": "image/svg+xml", ".ico": "image/x-icon" };
+const MIME = { ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "application/javascript; charset=utf-8", ".json": "application/json; charset=utf-8", ".svg": "image/svg+xml", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp", ".ico": "image/x-icon" };
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",

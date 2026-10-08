@@ -29,6 +29,7 @@
 | O aluno pede | Onde se resolve |
 |---|---|
 | Nome do corretor, credenciais, link de avaliação, `PANEL_TOKEN` | `.env` / `painel/config.js` — **config** |
+| Marca do cliente: cor, nome e logo do painel e da proposta | `painel/config.js` (bloco `MARCA`) — **config**, via `node setup/marca.mjs` |
 | Catálogo de imóveis, carteira de clientes | **banco** / import CSV pelo painel — **config** |
 | Janela de horário dos disparos | `window: { start, end }` do scheduler — valores, não lógica |
 | Moeda / formato de valor (€, US$) | `src/gemini/prompts.ts` (~linha 51) e `src/crons/radar.ts` (~linha 34): trocar `R$ ${...toLocaleString("pt-BR")}` pelo locale/moeda do cliente |
@@ -77,7 +78,7 @@ algumas credenciais. Confirme que ele tem (ou vai criar junto): conta **Supabase
 **Cloudflare**, chave **Google Gemini** e instância **WhatsApp via Evolution API**.
 
 > WhatsApp — este pacote usa **Evolution API por padrão** (spec §3.1), diferente de outros pacotes
-> da linha. A instância Evolution roda na infra do **aluno-revendedor** (não no Mac do corretor).
+> da linha. A instância Evolution roda na infra do **aluno-revendedor** (não no computador do corretor).
 > Adapter plugável: `evolution` / `zapi` / `meta` / `uazapi`.
 
 ### 2. Colete as credenciais (uma de cada vez, com o "onde pegar")
@@ -99,6 +100,16 @@ Pergunte e vá anotando. Para cada uma, explique onde encontrar:
 
 Gere você mesmo um **`WEBHOOK_SECRET`** forte (string aleatória) — guarde, vai usar no passo 6.
 
+**A marca do cliente** (o painel e a proposta que o cliente vê saem com a marca dele, não com a nossa).
+Pergunte, também uma de cada vez:
+
+| Campo | Obrigatório | Como pedir |
+|---|---|---|
+| `nome` | sim | Nome da marca no painel. Se o aluno não disser outro, use o `CORRETOR_NOME` |
+| `cor_primaria` | sim, com padrão | Cor da marca em hex `#RRGGBB` (aceita `#RGB`). Se ele não tiver uma, o padrão é o âmbar `#D97706` — **avise isso a ele em voz alta** |
+| `cor_secundaria` | não | Hex opcional. Sem ela, o painel deriva uma da primária |
+| `logo` | não | Caminho de um arquivo (png, jpg, svg ou webp) no computador dele, ou um link `https://`. Sem logo, o painel mostra só o nome |
+
 ### 3. Escreva os arquivos de config
 
 Com as respostas, escreva os arquivos de config (não comite — estão no `.gitignore`):
@@ -106,6 +117,15 @@ Com as respostas, escreva os arquivos de config (não comite — estão no `.git
 - `.env` — a partir de `.env.example`, preenchendo todas as chaves coletadas + o `WEBHOOK_SECRET`.
 - `painel/config.js` — a partir de `painel/config.example.js`, com `WORKER_URL` (URL do Worker após
   o deploy) e `BEARER_TOKEN` (o mesmo `PANEL_TOKEN` do `.env`).
+- **A marca** — rode (ele valida os campos, copia o logo para `painel/assets/` e grava o bloco `MARCA`
+  em `painel/config.js` sem apagar o resto, mais `docs/marca.config.js` para a proposta):
+
+```bash
+node setup/marca.mjs --nome "<nome>" --cor "#RRGGBB" [--cor-secundaria "#RRGGBB"] [--logo <caminho|https://...>] --bearer-token "<PANEL_TOKEN>"
+```
+
+  Saiu com erro → mostre a mensagem ao aluno e pergunte o campo de novo. Sem `--cor`, ele usa o âmbar
+  padrão e avisa; repita o aviso ao aluno. `--check` só valida, sem gravar.
 
 ### 4. Aplique o banco (migrations + seed)
 
@@ -149,7 +169,9 @@ pnpm wrangler secret put GOOGLE_REVIEW_LINK
 ```
 
 Após o deploy, pegue a URL do Worker e atualize `painel/config.js` com ela, depois faça
-`pnpm wrangler pages deploy painel/` novamente.
+`pnpm wrangler pages deploy painel/` novamente. O deploy leva junto `painel/marca.js` e
+`painel/assets/` (o logo). A proposta (`docs/proposta.html`) usa `docs/marca.config.js`,
+`docs/marca.js` e `docs/assets/`: publique a pasta `docs/` com esses três se for hospedar a proposta.
 
 ### 6. Conecte o WhatsApp
 

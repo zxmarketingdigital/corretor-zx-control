@@ -6,3 +6,7 @@ dist/
 *.local
 painel/config.js
 demo-publica/
+# marca do aluno (gerada por setup/marca.mjs): config das docs e logo do cliente
+docs/marca.config.js
+painel/assets/
+docs/assets/

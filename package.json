@@ -4,11 +4,11 @@
   "description": "Corretor ZX Control — pacote de nicho imobiliário (5 agentes de WhatsApp).",
   "type": "module",
   "scripts": {
-    "test": "vitest run",
+    "test": "vitest run && node --test setup/marca.selftest.mjs",
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json --noEmit",
     "dev": "wrangler dev",
-    "ci": "pnpm typecheck && pnpm vitest run && wrangler deploy --dry-run",
+    "ci": "pnpm typecheck && pnpm vitest run && node --test setup/marca.selftest.mjs && wrangler deploy --dry-run",
     "deploy": "wrangler deploy"
   },
   "license": "ISC",

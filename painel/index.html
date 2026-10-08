@@ -1,19 +1,23 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-marca-titulo>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Corretor ZX Control</title>
+  <title>Painel do Corretor</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <!-- Marca do aluno: config.js define window.APP_CONFIG.MARCA; marca.js aplica cor, nome e logo -->
+  <script src="config.js"></script>
+  <script src="marca.js"></script>
+  <script>ZXMarca.aplicar(window.APP_CONFIG && window.APP_CONFIG.MARCA);</script>
 </head>
 <body>
 <div id="app">
   <header>
     <span id="badge-status" title="Status Evolution"></span>
-    <h1>Corretor ZX Control</h1>
+    <h1><img id="brand-logo" class="brand-logo" data-marca="logo" alt="" hidden><span data-marca="nome">Painel do Corretor</span></h1>
     <nav>
       <button data-tab="catalogo" class="active">Catálogo</button>
       <button data-tab="carteira">Carteira</button>
@@ -312,7 +316,6 @@
 </div>
 
 <div id="toast"></div>
-<script src="config.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

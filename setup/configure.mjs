@@ -5,6 +5,7 @@
 
 import { createInterface } from "readline";
 import { writeFileSync, existsSync } from "fs";
+import { perguntarMarca, gravarMarca } from "./marca.mjs";
 
 const rl = createInterface({ input: process.stdin, output: process.stdout });
 const ask = (q) => new Promise((r) => rl.question(q, r));
@@ -48,6 +49,9 @@ console.log("╚═════════════════════�
 section("1. Dados do Corretor");
 const nomeCorretor = await ask("  Nome do corretor: ");
 const googleLink = await ask("  Link Google Minha Empresa (avaliações): ");
+
+section("1b. Marca (cor, nome e logo do painel)");
+const marcaEntrada = await perguntarMarca(ask, { nomePadrao: nomeCorretor.trim() });
 
 section("2. Supabase");
 const supabaseUrl = await ask("  SUPABASE_URL (ex: https://xxx.supabase.co): ");
@@ -94,6 +98,10 @@ const devVars = [
 writeFileSync(".dev.vars", devVars);
 console.log("\n  ✓ .dev.vars criado (apenas para desenvolvimento local)");
 
+// Marca + token do painel vão para painel/config.js (o painel já lê esse arquivo; está no .gitignore)
+const marcaGravada = gravarMarca(marcaEntrada, { bearerToken: panelToken.trim() });
+console.log(`  ✓ Marca gravada em painel/config.js (${marcaGravada.marca.nome} · ${marcaGravada.marca.cor_primaria})`);
+
 section("6. Próximos passos");
 console.log(`
   1. Aplique as migrations no Supabase:
@@ -117,8 +125,8 @@ console.log(`
      pnpm run deploy
 
   5. Configure o painel (Cloudflare Pages):
-     - cp painel/config.example.js painel/config.js
-     - Edite com WORKER_URL e BEARER_TOKEN
+     - painel/config.js já foi criado com a marca e o BEARER_TOKEN
+     - Edite só o WORKER_URL (a URL do Worker depois do deploy)
      - Suba o painel para Cloudflare Pages
 
   6. Conecte o WhatsApp:
