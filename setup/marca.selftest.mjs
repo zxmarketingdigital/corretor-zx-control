@@ -61,3 +61,25 @@ test("sem config.js prévio parte do exemplo e usa o bearer informado", () => {
   assert.equal(cfg.BEARER_TOKEN, "novo");
   assert.equal(cfg.MARCA.logo, "");
 });
+
+test("nome hostil não escapa do literal JS; logo com espaço e caminho absoluto funciona; docs nunca leva token", () => {
+  const raiz = mkdtempSync(join(tmpdir(), "marca-"));
+  mkdirSync(join(raiz, "painel"));
+  writeFileSync(join(raiz, "painel", "config.js"), 'window.APP_CONFIG = { WORKER_URL: "https://w", BEARER_TOKEN: "segredo123", MARCA: { token: "segredo123" } };');
+  mkdirSync(join(raiz, "pasta com espaço"));
+  const logo = join(raiz, "pasta com espaço", "meu logo.PNG");
+  writeFileSync(logo, "png");
+  const hostil = 'Ana"; alert(1)//</script>\u2028\nX';
+  const v = validarMarca({ nome: hostil, cor_primaria: "#112233", logo: `'${logo}'` });
+  assert.equal(v.ok, true);
+  gravarMarca(v, { raiz });
+  const docsTxt = readFileSync(join(raiz, "docs", "marca.config.js"), "utf8");
+  assert.ok(!docsTxt.includes("segredo123"));
+  assert.ok(!docsTxt.includes("WORKER_URL"));
+  const docs = lerJs(join(raiz, "docs", "marca.config.js"), "MARCA_CONFIG");
+  assert.equal(docs.nome, 'Ana"; alert(1)//</script> X');
+  assert.equal(docs.logo, "assets/logo.png");
+  assert.deepEqual(Object.keys(docs).sort(), ["cor_primaria", "cor_secundaria", "logo", "nome"]);
+  const cfg = lerJs(join(raiz, "painel", "config.js"), "APP_CONFIG");
+  assert.equal(Object.keys(cfg.MARCA).includes("token"), false); // MARCA é substituída, não mesclada
+});

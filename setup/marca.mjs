@@ -66,7 +66,7 @@ export function validarLogoEntrada(v) {
 export function validarMarca({ nome, cor_primaria, cor_secundaria, logo }) {
   const erros = [];
   const avisos = [];
-  const n = String(nome ?? "").trim();
+  const n = String(nome ?? "").replace(/\s+/g, " ").trim(); // quebra de linha/U+2028 no nome não vai pro JS gerado
   if (!n) erros.push("nome é obrigatório.");
   const cor = validarCor(cor_primaria, { obrigatoria: true });
   if (!cor.ok) erros.push(`cor_primaria: ${cor.erro}`);
@@ -141,7 +141,8 @@ function copiarLogo(origem, raiz) {
  * Preserva WORKER_URL/BEARER_TOKEN de um painel/config.js que já exista.
  */
 export function gravarMarca({ marca, logoOrigem }, { raiz = RAIZ, bearerToken } = {}) {
-  const m = { ...marca };
+  // whitelist: só os 4 campos da marca. Nada mais (token, URL do Worker) entra em docs/marca.config.js
+  const m = { nome: marca.nome, cor_primaria: marca.cor_primaria, cor_secundaria: marca.cor_secundaria ?? "", logo: marca.logo ?? "" };
   if (logoOrigem) m.logo = copiarLogo(logoOrigem, raiz);
 
   const arquivoConfig = join(raiz, "painel", "config.js");
