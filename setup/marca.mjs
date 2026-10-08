@@ -184,20 +184,35 @@ function gravarAtomico(destino, escrever) {
   try { escrever(tmp); renameSync(tmp, destino); } catch (e) { try { unlinkSync(tmp); } catch {} throw e; }
 }
 
+/**
+ * Copia o logo para painel/assets e docs/assets (tmp exclusivo + rename). NÃO remove o logo antigo:
+ * devolve `limparAntigos()` para rodar só depois de os configs apontarem para o novo.
+ */
 function copiarLogo(origem, raiz) {
   if (lstatSync(origem).isSymbolicLink()) throw new Error(`O logo ${origem} é um link simbólico; informe o arquivo real. Nada foi alterado.`);
   const ext = extname(origem).toLowerCase();
   const nomeFinal = `logo${ext}`;
   const dirs = [join(raiz, "painel", "assets"), join(raiz, "docs", "assets")];
   for (const dir of dirs) recusarSymlink(join(dir, nomeFinal), raiz); // todos os destinos validados antes de tocar em qualquer um
-  for (const dir of dirs) {
-    mkdirSync(dir, { recursive: true });
-    gravarAtomico(join(dir, nomeFinal), (tmp) => copyFileSync(origem, tmp, fsConst.COPYFILE_EXCL)); // novo logo no lugar primeiro...
-    for (const f of readdirSync(dir)) {
-      if (/^logo\.[a-z]+$/i.test(f) && f !== nomeFinal) unlinkSync(join(dir, f)); // ...só então some o de outra extensão
+  const criados = [];
+  try {
+    for (const dir of dirs) {
+      mkdirSync(dir, { recursive: true });
+      const destino = join(dir, nomeFinal);
+      const jaExistia = existsSync(destino);
+      gravarAtomico(destino, (tmp) => copyFileSync(origem, tmp, fsConst.COPYFILE_EXCL));
+      if (!jaExistia) criados.push(destino);
     }
+  } catch (e) {
+    for (const c of criados) { try { unlinkSync(c); } catch {} } // falhou no meio: o que era novo sai, os configs seguem apontando para o logo antigo
+    throw e;
   }
-  return `assets/${nomeFinal}`;
+  const limparAntigos = () => {
+    for (const dir of dirs) {
+      for (const f of readdirSync(dir)) if (/^logo\.[a-z]+$/i.test(f) && f !== nomeFinal) { try { unlinkSync(join(dir, f)); } catch {} }
+    }
+  };
+  return { rel: `assets/${nomeFinal}`, limparAntigos, desfazer: () => { for (const c of criados) { try { unlinkSync(c); } catch {} } } };
 }
 
 /**
@@ -223,7 +238,8 @@ export function gravarMarca({ marca, logoOrigem }, { raiz = RAIZ, bearerToken } 
   recusarSymlink(join(raiz, "painel"), raiz);
 
   // 2) grava
-  if (logoOrigem) m.logo = copiarLogo(logoOrigem, raiz);
+  const logoCopiado = logoOrigem ? copiarLogo(logoOrigem, raiz) : null;
+  if (logoCopiado) m.logo = logoCopiado.rel;
   const cfg = { ...base, MARCA: m };
   // token novo (PANEL_TOKEN do wizard/.env) sincroniza o painel; sem token novo, o existente fica
   if (bearerToken) cfg.BEARER_TOKEN = bearerToken;
@@ -247,9 +263,13 @@ export function gravarMarca({ marca, logoOrigem }, { raiz = RAIZ, bearerToken } 
       if (anterior === null) unlinkSync(arquivoConfig); else writeFileSync(arquivoConfig, anterior);
       throw e;
     }
+  } catch (e) {
+    logoCopiado?.desfazer(); // configs não trocaram: o logo novo recém-criado sai e o antigo continua valendo
+    throw e;
   } finally {
     for (const t of [tmpConfig, tmpDocs]) { try { unlinkSync(t); } catch {} }
   }
+  logoCopiado?.limparAntigos(); // só agora, com os configs já apontando para o logo novo
   return { marca: m, arquivos: [arquivoConfig, arquivoDocs] };
 }
 

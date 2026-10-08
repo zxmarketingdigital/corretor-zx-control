@@ -115,7 +115,7 @@
       "--primary": p,
       "--primary-light": luz,
       "--primary-bright": brilho,
-      "--primary-dark": misturar(p, ESCURO, 0.45),
+      "--primary-dark": misturar(p, ESCURO, 0.45), // só bordas/ornamentos (nunca texto): por isso sem piso de contraste
       "--primary-rgb": lista(p),
       "--on-primary": textoSobre(p),
       "--on-primary-hover": textoSobre(luz),

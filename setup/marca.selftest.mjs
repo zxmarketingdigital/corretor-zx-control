@@ -188,3 +188,16 @@ test("nome com vírgula e dois-pontos sobrevive a regravar a marca; PANEL_TOKEN 
   writeFileSync(join(raiz, ".env"), "PANEL_TOKEN=do-env\n");
   assert.equal(lerPanelToken(raiz, { PANEL_TOKEN: "   " }), "do-env");
 });
+
+test("falha ao copiar o logo no 2º destino não apaga o logo antigo nem deixa o novo pela metade", () => {
+  const raiz = mkdtempSync(join(tmpdir(), "marca-"));
+  mkdirSync(join(raiz, "painel"));
+  const png = join(raiz, "a.png"); writeFileSync(png, "png");
+  const svg = join(raiz, "b.svg"); writeFileSync(svg, "<svg/>");
+  gravarMarca(validarMarca({ nome: "A", cor_primaria: "#112233", logo: png }), { raiz });
+  mkdirSync(join(raiz, "docs", "assets", "logo.svg")); // faz a cópia em docs/assets falhar
+  assert.throws(() => gravarMarca(validarMarca({ nome: "A", cor_primaria: "#112233", logo: svg }), { raiz }));
+  assert.equal(existsSync(join(raiz, "painel", "assets", "logo.png")), true);
+  assert.equal(existsSync(join(raiz, "painel", "assets", "logo.svg")), false);
+  assert.equal(lerJs(join(raiz, "painel", "config.js"), "APP_CONFIG").MARCA.logo, "assets/logo.png");
+});
