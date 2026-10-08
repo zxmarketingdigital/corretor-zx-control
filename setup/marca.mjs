@@ -15,7 +15,7 @@
 //   docs/marca.config.js    window.MARCA_CONFIG      (páginas de docs/, sem token nenhum)
 //   painel/assets/logo.*    cópia do logo local (docs/assets/logo.* também)
 
-import { existsSync, mkdirSync, copyFileSync, readFileSync, writeFileSync, readdirSync, unlinkSync } from "node:fs";
+import { existsSync, mkdirSync, copyFileSync, readFileSync, writeFileSync, readdirSync, unlinkSync, lstatSync, renameSync, realpathSync } from "node:fs";
 import { join, dirname, extname, resolve } from "node:path";
 import { homedir } from "node:os";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -113,6 +113,15 @@ export async function perguntarMarca(ask, { nomePadrao = "" } = {}) {
 
 // ── Gravação ───────────────────────────────────────────────────────────────
 
+const ESCAPES = { n: "\n", t: "\t", r: "\r", "\\": "\\", "'": "'", '"': '"', "/": "/" };
+/** Decodifica escapes de string com aspas simples; escape desconhecido (\x, \u...) recusa o arquivo. */
+function desescapar(txt) {
+  return txt.replace(/\\(.)/g, (_, ch) => {
+    if (!(ch in ESCAPES)) throw new Error(`escape \\${ch} não suportado`);
+    return ESCAPES[ch];
+  });
+}
+
 /**
  * Lê `window.APP_CONFIG = {...};` SEM executar o arquivo. Aceita só o formato que o painel usa:
  * objeto literal com strings, números, booleanos, null, objetos aninhados, comentários e vírgula final.
@@ -133,7 +142,7 @@ export function lerAppConfig(arquivo) {
         if (src[j] === "\\") { buf += src[j] + (src[j + 1] ?? ""); j += 2; } else { buf += src[j++]; }
       }
       if (j >= n) throw new Error("string sem fechamento");
-      json += c === '"' ? `"${buf}"` : JSON.stringify(buf.replace(/\\(.)/g, "$1"));
+      json += c === '"' ? `"${buf}"` : JSON.stringify(desescapar(buf));
       i = j + 1;
     } else if (c === "/" && src[i + 1] === "/") { while (i < n && src[i] !== "\n") i++; }
     else if (c === "/" && src[i + 1] === "*") { const e = src.indexOf("*/", i + 2); if (e < 0) throw new Error("comentário sem fechamento"); i = e + 2; }
@@ -149,13 +158,38 @@ export function lerAppConfig(arquivo) {
   return cfg;
 }
 
+/** Recusa symlink em qualquer ponto do caminho (dentro da raiz): gravar/apagar seguindo link sairia da raiz. */
+function recusarSymlink(alvo, raiz) {
+  const rel = alvo.slice(raiz.length).split(/[\\/]/).filter(Boolean);
+  let atual = raiz;
+  for (const parte of rel) {
+    atual = join(atual, parte);
+    if (!existsSync(atual) && !lstatExiste(atual)) break;
+    if (lstatSync(atual).isSymbolicLink()) throw new Error(`${atual} é um link simbólico; recusei para não gravar fora da pasta do projeto. Nada foi alterado.`);
+  }
+  const real = existsSync(alvo) ? realpathSync(alvo) : null;
+  if (real && !real.startsWith(realpathSync(raiz))) throw new Error(`${alvo} aponta para fora da pasta do projeto. Nada foi alterado.`);
+}
+function lstatExiste(p) { try { lstatSync(p); return true; } catch { return false; } }
+
+/** Grava em arquivo temporário vizinho e troca por rename (atômico): falha no meio não deixa arquivo pela metade. */
+function gravarAtomico(destino, escrever) {
+  const tmp = `${destino}.tmp-${process.pid}`;
+  try { escrever(tmp); renameSync(tmp, destino); } catch (e) { try { unlinkSync(tmp); } catch {} throw e; }
+}
+
 function copiarLogo(origem, raiz) {
+  if (lstatSync(origem).isSymbolicLink()) throw new Error(`O logo ${origem} é um link simbólico; informe o arquivo real. Nada foi alterado.`);
   const ext = extname(origem).toLowerCase();
   const nomeFinal = `logo${ext}`;
-  for (const dir of [join(raiz, "painel", "assets"), join(raiz, "docs", "assets")]) {
+  const dirs = [join(raiz, "painel", "assets"), join(raiz, "docs", "assets")];
+  for (const dir of dirs) recusarSymlink(join(dir, nomeFinal), raiz); // todos os destinos validados antes de tocar em qualquer um
+  for (const dir of dirs) {
     mkdirSync(dir, { recursive: true });
-    for (const f of readdirSync(dir)) if (/^logo\.[a-z]+$/i.test(f) && f !== nomeFinal) unlinkSync(join(dir, f)); // troca de extensão não deixa logo velho
-    copyFileSync(origem, join(dir, nomeFinal));
+    gravarAtomico(join(dir, nomeFinal), (tmp) => copyFileSync(origem, tmp)); // novo logo no lugar primeiro...
+    for (const f of readdirSync(dir)) {
+      if (/^logo\.[a-z]+$/i.test(f) && f !== nomeFinal) unlinkSync(join(dir, f)); // ...só então some o de outra extensão
+    }
   }
   return `assets/${nomeFinal}`;
 }
@@ -167,32 +201,34 @@ function copiarLogo(origem, raiz) {
 export function gravarMarca({ marca, logoOrigem }, { raiz = RAIZ, bearerToken } = {}) {
   // whitelist: só os 4 campos da marca. Nada mais (token, URL do Worker) entra em docs/marca.config.js
   const m = { nome: marca.nome, cor_primaria: marca.cor_primaria, cor_secundaria: marca.cor_secundaria ?? "", logo: marca.logo ?? "" };
-  if (logoOrigem) m.logo = copiarLogo(logoOrigem, raiz);
-
   const arquivoConfig = join(raiz, "painel", "config.js");
+  const arquivoDocs = join(raiz, "docs", "marca.config.js");
+
+  // 1) valida tudo ANTES de tocar em qualquer arquivo (config ilegível ou link simbólico abortam sem mudar nada)
   let base;
   try {
     base = lerAppConfig(arquivoConfig) ?? lerAppConfig(join(raiz, "painel", "config.example.js")) ?? {};
   } catch (e) {
-    // não sobrescreve um config existente que não foi entendido: perderia WORKER_URL e token
     throw new Error(`Não consegui ler painel/config.js (${e.message}). Nada foi alterado. Corrija o arquivo (ou mova-o) e rode de novo.`);
   }
+  recusarSymlink(arquivoConfig, raiz);
+  recusarSymlink(arquivoDocs, raiz);
+  recusarSymlink(join(raiz, "docs"), raiz);
+  recusarSymlink(join(raiz, "painel"), raiz);
+
+  // 2) grava
+  if (logoOrigem) m.logo = copiarLogo(logoOrigem, raiz);
   const cfg = { ...base, MARCA: m };
   // token novo (PANEL_TOKEN do wizard/.env) sincroniza o painel; sem token novo, o existente fica
   if (bearerToken) cfg.BEARER_TOKEN = bearerToken;
-  writeFileSync(
-    arquivoConfig,
+  gravarAtomico(arquivoConfig, (tmp) => writeFileSync(tmp,
     "// Gerado por setup/marca.mjs. Contém o token do painel: NÃO commitar (está no .gitignore).\n" +
-      `window.APP_CONFIG = ${JSON.stringify(cfg, null, 2)};\n`,
-  );
+      `window.APP_CONFIG = ${JSON.stringify(cfg, null, 2)};\n`));
 
   mkdirSync(join(raiz, "docs"), { recursive: true });
-  const arquivoDocs = join(raiz, "docs", "marca.config.js");
-  writeFileSync(
-    arquivoDocs,
+  gravarAtomico(arquivoDocs, (tmp) => writeFileSync(tmp,
     "// Gerado por setup/marca.mjs: marca para as páginas de docs/ (sem token). NÃO commitar (está no .gitignore).\n" +
-      `window.MARCA_CONFIG = ${JSON.stringify(m, null, 2)};\n`,
-  );
+      `window.MARCA_CONFIG = ${JSON.stringify(m, null, 2)};\n`));
   return { marca: m, arquivos: [arquivoConfig, arquivoDocs] };
 }
 
@@ -204,8 +240,8 @@ export function lerPanelToken(raiz = RAIZ, env = process.env) {
   for (const f of [".env", ".dev.vars"]) {
     const arq = join(raiz, f);
     if (!existsSync(arq)) continue;
-    const m = /^\s*PANEL_TOKEN\s*=\s*["']?([^"'\r\n]+?)["']?\s*$/m.exec(readFileSync(arq, "utf8"));
-    if (m) return m[1];
+    const m = /^\s*(?:export\s+)?PANEL_TOKEN\s*=\s*(?:"([^"\r\n]*)"|'([^'\r\n]*)'|([^\s#"'\r\n]+))/m.exec(readFileSync(arq, "utf8"));
+    if (m) { const t = (m[1] ?? m[2] ?? m[3] ?? "").trim(); if (t) return t; }
   }
   return undefined;
 }

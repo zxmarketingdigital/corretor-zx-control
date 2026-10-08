@@ -1,7 +1,7 @@
 // Testa setup/marca.mjs (validação + gravação) em diretório temporário. Rodar: node --test setup/marca.selftest.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, copyFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, copyFileSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import vm from "node:vm";
@@ -124,4 +124,56 @@ test("token novo sincroniza o painel; sem token novo o existente fica", () => {
   assert.equal(lerJs(join(raiz, "painel", "config.js"), "APP_CONFIG").BEARER_TOKEN, "antigo");
   gravarMarca(v, { raiz, bearerToken: "novo" });
   assert.equal(lerJs(join(raiz, "painel", "config.js"), "APP_CONFIG").BEARER_TOKEN, "novo");
+});
+
+test("symlink no config, nas pastas ou no logo é recusado sem gravar fora da raiz", () => {
+  const raiz = mkdtempSync(join(tmpdir(), "marca-"));
+  const fora = mkdtempSync(join(tmpdir(), "fora-"));
+  mkdirSync(join(raiz, "painel"));
+  const v = validarMarca({ nome: "A", cor_primaria: "#112233" });
+  // config.js é link para fora
+  writeFileSync(join(fora, "alvo.js"), "NAO_TOCAR");
+  symlinkSync(join(fora, "alvo.js"), join(raiz, "painel", "config.js"));
+  assert.throws(() => gravarMarca(v, { raiz }), /link simbólico|ilegível|Não consegui/);
+  assert.equal(readFileSync(join(fora, "alvo.js"), "utf8"), "NAO_TOCAR");
+  // painel/assets é link para fora
+  const raiz2 = mkdtempSync(join(tmpdir(), "marca-"));
+  mkdirSync(join(raiz2, "painel"));
+  symlinkSync(fora, join(raiz2, "painel", "assets"));
+  const logo = join(raiz2, "l.png"); writeFileSync(logo, "png");
+  assert.throws(() => gravarMarca(validarMarca({ nome: "A", cor_primaria: "#112233", logo }), { raiz: raiz2 }), /link simbólico|fora da pasta/);
+  assert.equal(existsSync(join(fora, "logo.png")), false);
+  // logo de origem é link
+  const raiz3 = mkdtempSync(join(tmpdir(), "marca-"));
+  mkdirSync(join(raiz3, "painel"));
+  symlinkSync(join(fora, "alvo.js"), join(raiz3, "x.png"));
+  assert.throws(() => gravarMarca(validarMarca({ nome: "A", cor_primaria: "#112233", logo: join(raiz3, "x.png") }), { raiz: raiz3 }), /link simbólico/);
+});
+
+test("troca de logo: o antigo só some depois do novo estar no lugar; config ilegível não mexe em assets", () => {
+  const raiz = mkdtempSync(join(tmpdir(), "marca-"));
+  mkdirSync(join(raiz, "painel"));
+  const png = join(raiz, "a.png"); writeFileSync(png, "png");
+  const svg = join(raiz, "b.svg"); writeFileSync(svg, "<svg/>");
+  gravarMarca(validarMarca({ nome: "A", cor_primaria: "#112233", logo: png }), { raiz });
+  gravarMarca(validarMarca({ nome: "A", cor_primaria: "#112233", logo: svg }), { raiz });
+  assert.equal(existsSync(join(raiz, "painel", "assets", "logo.png")), false);
+  assert.equal(readFileSync(join(raiz, "painel", "assets", "logo.svg"), "utf8"), "<svg/>");
+  writeFileSync(join(raiz, "painel", "config.js"), "window.APP_CONFIG = { X: location.origin };");
+  assert.throws(() => gravarMarca(validarMarca({ nome: "A", cor_primaria: "#112233", logo: png }), { raiz }), /Nada foi alterado/);
+  assert.equal(existsSync(join(raiz, "painel", "assets", "logo.svg")), true);
+  assert.equal(existsSync(join(raiz, "painel", "assets", "logo.png")), false);
+});
+
+test("parser: escapes de aspas simples; .env com comentário inline e aspas", () => {
+  const raiz = mkdtempSync(join(tmpdir(), "marca-"));
+  const arq = join(raiz, "c.js");
+  writeFileSync(arq, "window.APP_CONFIG = { T: 'a\\nb', U: 'it\\'s' };");
+  assert.deepEqual(JSON.parse(JSON.stringify(lerAppConfig(arq))), { T: "a\nb", U: "it's" });
+  writeFileSync(arq, "window.APP_CONFIG = { T: 'a\\u0041' };");
+  assert.throws(() => lerAppConfig(arq), /não suportado/);
+  writeFileSync(join(raiz, ".env"), 'OUTRO=1\nPANEL_TOKEN=abc123 # token do painel\n');
+  assert.equal(lerPanelToken(raiz, {}), "abc123");
+  writeFileSync(join(raiz, ".env"), 'export PANEL_TOKEN="com espaco # e hash"\n');
+  assert.equal(lerPanelToken(raiz, {}), "com espaco # e hash");
 });

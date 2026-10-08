@@ -16,7 +16,6 @@
   var FUNDO = "#0D0D0D";      // fundo do painel (as cores de texto precisam ter contraste com ele)
   var ESCURO = "#0D0D0D";
   var CLARO = "#FFFFFF";
-  var EXT_LOGO = /\.(png|jpe?g|svg|webp)$/i;
 
   // "#RGB" ou "#RRGGBB" -> "#RRGGBB" maiúsculo; qualquer outra coisa -> null.
   function normalizarHex(v) {
@@ -81,7 +80,7 @@
       try { var u = new URL(s); return u.protocol === "https:" && u.hostname ? u.href : null; } catch (e) { return null; }
     }
     // caminho relativo copiado pelo setup (nada de "..", barra inicial, "javascript:", "data:" etc.)
-    return /^assets\/[A-Za-z0-9._-]+$/.test(s) && EXT_LOGO.test(s) ? s : null;
+    return /^assets\/logo\.(png|jpe?g|svg|webp)$/i.test(s) ? s : null;
   }
 
   // Normaliza o objeto de marca. Nunca lança: campo inválido é descartado e vai para `avisos`.
