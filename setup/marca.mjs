@@ -226,7 +226,9 @@ function copiarLogo(origem, raiz) {
   const limparAntigos = () => { // só depois de os configs apontarem para o novo
     for (const [, bak] of backups) { try { unlinkSync(bak); } catch {} }
     for (const dir of dirs) {
-      for (const f of readdirSync(dir)) if (/^logo\.[a-z]+$/i.test(f) && f !== nomeFinal) { try { unlinkSync(join(dir, f)); } catch {} }
+      let nomes = [];
+      try { nomes = readdirSync(dir); } catch { continue; } // limpeza é best-effort: a gravação já concluiu
+      for (const f of nomes) if (/^logo\.[a-z]+$/i.test(f) && f !== nomeFinal) { try { unlinkSync(join(dir, f)); } catch {} }
     }
   };
   return { rel: `assets/${nomeFinal}`, limparAntigos, desfazer };
